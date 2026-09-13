@@ -10,7 +10,7 @@
 
 ### Windows 桌面版
 
-从本仓库的 [Releases](https://github.com/yzh423/ticket-master/releases) 下载最新版 `候票台 Setup ... .exe` 并安装。安装后从开始菜单启动“候票台”。桌面版提供本地 SQLite 数据库、应用运行期间的 Windows 提醒、内置官方网页工作区，以及可选的 Android USB 连接检查。
+从本仓库的 [Releases](https://github.com/yzh423/ticket-master/releases) 下载最新版 `TicketWindow-Setup-版本号.exe` 并安装。安装后从开始菜单启动“候票台”。桌面版提供本地 SQLite 数据库、应用运行期间的 Windows 提醒、内置官方网页工作区，以及可选的 Android USB 连接检查。
 
 从源码运行需要 Node.js 24、pnpm 11 和 Windows PowerShell：
 
