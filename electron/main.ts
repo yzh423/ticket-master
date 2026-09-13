@@ -1,9 +1,19 @@
-import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Notification,
+  session,
+  shell,
+  type WebContents,
+} from 'electron';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { TicketStore } from './store';
+import { OfficialBrowserManager } from './official-browser';
+import { resolveBrowserTarget } from '../shared/browser';
 import { officialUrl, remindersDue } from '../shared/rules';
 import { platformLabels, saleLabels, type EventRecord, type PlatformId } from '../shared/model';
 
@@ -14,6 +24,7 @@ const singleInstance = app.requestSingleInstanceLock();
 if (!singleInstance) app.quit();
 let store: TicketStore;
 let window: BrowserWindow | null = null;
+let officialBrowser: OfficialBrowserManager;
 const adb = async (args: string[]): Promise<string> => {
   const result = await run('adb', args, { timeout: 7000, windowsHide: true });
   return result.stdout;
@@ -89,7 +100,7 @@ function createWindow(): void {
     height: 820,
     minWidth: 900,
     minHeight: 650,
-    backgroundColor: '#f7f6f2',
+    backgroundColor: '#0a111a',
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -105,6 +116,11 @@ function createWindow(): void {
   });
 }
 
+function forMain(sender: WebContents): void {
+  if (!window || window.isDestroyed() || sender !== window.webContents)
+    throw new Error('页面来源无效');
+}
+
 app.on('second-instance', () => {
   if (window) {
     if (window.isMinimized()) window.restore();
@@ -116,29 +132,55 @@ if (singleInstance)
     .whenReady()
     .then(async () => {
       store = await TicketStore.open(join(app.getPath('userData'), 'tickets.sqlite'));
-      ipcMain.handle('events:list', () => store.list());
-      ipcMain.handle('events:save', (_e, value: EventRecord) => {
+      officialBrowser = new OfficialBrowserManager();
+      ipcMain.handle('events:list', (event) => {
+        forMain(event.sender);
+        return store.list();
+      });
+      ipcMain.handle('events:save', (event, value: EventRecord) => {
+        forMain(event.sender);
         const existing = store.list().find((item) => item.id === value?.id);
-        const event = store.save({
+        const record = store.save({
           ...value,
           id: existing?.id ?? value.id ?? randomUUID(),
           createdAt: existing?.createdAt ?? new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
         window?.webContents.send('events:changed');
-        return event;
+        return record;
       });
-      ipcMain.handle('events:remove', (_e, id: string) => {
+      ipcMain.handle('events:remove', (event, id: string) => {
+        forMain(event.sender);
         if (typeof id !== 'string' || id.length > 100) throw new Error('任务 ID 无效');
         store.remove(id);
         window?.webContents.send('events:changed');
       });
-      ipcMain.handle('official:open', async (_e, platform: PlatformId, url: string) => {
+      ipcMain.handle('official:open', async (event, platform: PlatformId, url: string) => {
+        forMain(event.sender);
         if (!officialUrl(platform, url)) throw new Error('该入口未通过官方域名检查，请先核对来源');
         await shell.openExternal(url);
       });
-      ipcMain.handle('android:status', usbStatus);
-      ipcMain.handle('android:damai', async () => {
+      ipcMain.handle('official:open-inside', (event, eventId: string, opportunityId?: string) => {
+        forMain(event.sender);
+        const target = resolveBrowserTarget(store.list(), eventId, opportunityId);
+        officialBrowser.open(target);
+      });
+      ipcMain.handle('browser:clear-data', async (event, platform: PlatformId) => {
+        forMain(event.sender);
+        if (!Object.hasOwn(platformLabels, platform) || platform === 'other')
+          throw new Error('请选择已支持的平台');
+        if (officialBrowser.isOpenFor(platform))
+          throw new Error('请先关闭该平台的网页工作区，再清除登录数据，以免中断当前会话');
+        const browserSession = session.fromPartition(`persist:ticket-${platform}`);
+        await browserSession.clearStorageData();
+        await browserSession.clearCache();
+      });
+      ipcMain.handle('android:status', (event) => {
+        forMain(event.sender);
+        return usbStatus();
+      });
+      ipcMain.handle('android:damai', async (event) => {
+        forMain(event.sender);
         try {
           const serial = await connectedAndroid();
           if (!serial) return '没有已授权的 Android 设备。';

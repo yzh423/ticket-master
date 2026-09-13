@@ -1,0 +1,323 @@
+:root {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  color: #e8f4f4;
+  background: #0b111b;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+button:focus-visible {
+  outline: 2px solid #62ead7;
+  outline-offset: 2px;
+}
+.browser-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-rows: 100px minmax(0, 1fr);
+  background: #0b111b;
+}
+.browser-topbar {
+  grid-column: 1/-1;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 20px;
+  border-bottom: 1px solid #22313e;
+  background: #111b27;
+  min-width: 0;
+}
+.browser-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 250px;
+}
+.browser-logo {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  background: #194b4a;
+  color: #63e9cd;
+  border: 1px solid #2e766e;
+  border-radius: 9px;
+}
+.browser-identity strong,
+.browser-identity small {
+  display: block;
+}
+.browser-identity strong {
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+.browser-identity small {
+  font-size: 11px;
+  color: #8da5ad;
+  margin-top: 4px;
+  max-width: 205px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.browser-location {
+  flex: 1;
+  min-width: 120px;
+  height: 40px;
+  border: 1px solid #32414e;
+  background: #0b1520;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  color: #8dddcf;
+  font-size: 12px;
+}
+.browser-location span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loading-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6debd0;
+  box-shadow: 0 0 12px #6debd0;
+  margin-left: auto;
+  flex: none;
+  animation: pulse 1s infinite alternate;
+}
+@keyframes pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+.browser-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.browser-actions button {
+  min-width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #cadce0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 9px;
+}
+.browser-actions button:hover:not(:disabled) {
+  background: #27394a;
+  color: #fff;
+}
+.browser-actions button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+.browser-actions .external-action {
+  padding: 0 12px;
+  background: #163d3d;
+  color: #b4f5e5;
+  font-size: 11px;
+  font-weight: 600;
+}
+.browser-action-divider {
+  height: 21px;
+  border-left: 1px solid #354655;
+  margin: 0 6px;
+}
+.browser-sidecar {
+  grid-row: 2;
+  background: #101a26;
+  border-right: 1px solid #293a46;
+  padding: 28px 20px 23px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.micro-label {
+  font-size: 9px;
+  letter-spacing: 0.19em;
+  color: #67dfc7;
+  font-weight: 700;
+}
+.browser-sidecar h1 {
+  font-size: 19px;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  margin: 13px 0 7px;
+  word-break: break-word;
+}
+.browser-context {
+  font-size: 11px;
+  color: #8ca4ad;
+  margin: 0 0 24px;
+}
+.browser-intent {
+  border: 1px solid #2e5e5b;
+  background: #132e33;
+  border-radius: 9px;
+  padding: 16px;
+}
+.browser-intent > span,
+.browser-tier-heading {
+  font-size: 10px;
+  color: #a0c8c4;
+  font-weight: 700;
+}
+.browser-intent > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 15px;
+}
+.browser-intent strong {
+  font-size: 21px;
+  color: #eafdf8;
+  font-variant-numeric: tabular-nums;
+}
+.browser-intent strong small {
+  display: block;
+  margin-top: 4px;
+  color: #74a9a7;
+  font-size: 10px;
+  font-weight: 400;
+}
+.browser-tier-heading {
+  display: flex;
+  justify-content: space-between;
+  margin: 25px 1px 11px;
+}
+.browser-tier-heading small {
+  font-size: 10px;
+  color: #7c939c;
+  font-weight: 400;
+}
+.browser-tiers {
+  display: grid;
+  gap: 7px;
+}
+.browser-tiers > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #2d3a46;
+  background: #172332;
+  border-radius: 7px;
+  padding: 10px;
+}
+.browser-tiers b {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: #274e4a;
+  color: #78ebd4;
+  font-size: 10px;
+}
+.browser-tiers span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.browser-tiers small {
+  color: #91a6ac;
+  font-size: 10px;
+}
+.browser-rule {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  background: #2a261f;
+  border: 1px solid #655037;
+  color: #ffd593;
+  padding: 12px;
+  border-radius: 7px;
+}
+.browser-rule svg {
+  flex: none;
+}
+.browser-rule p,
+.browser-warning p {
+  font-size: 10px;
+  line-height: 1.7;
+  margin: 0;
+}
+.browser-warning {
+  border: 1px solid #a46052;
+  background: #392824;
+  border-radius: 7px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.browser-warning strong {
+  color: #ffd0c3;
+  font-size: 11px;
+}
+.browser-warning small {
+  display: block;
+  margin: 7px 0;
+  color: #dfaca0;
+  word-break: break-all;
+  font-size: 10px;
+}
+.browser-warning p {
+  margin-top: 7px;
+  color: #e4c1b4;
+}
+.browser-bottom {
+  display: flex;
+  gap: 9px;
+  color: #819ca5;
+  font-size: 10px;
+  line-height: 1.7;
+  margin-top: auto;
+  padding-top: 25px;
+}
+.browser-bottom svg {
+  flex: none;
+  color: #6dc8bb;
+}
+.browser-remote-placeholder {
+  grid-row: 2;
+  grid-column: 2;
+  background: #f3f5f2;
+  color: #738b8e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+.browser-placeholder-mark {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #e6ece8;
+  display: grid;
+  place-items: center;
+  color: #6f9893;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-dot {
+    animation: none;
+  }
+}

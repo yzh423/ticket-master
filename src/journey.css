@@ -1,0 +1,102 @@
+.task-journey {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 20px;
+}
+.task-journey button {
+  min-width: 0;
+  text-align: left;
+  border: 1px solid #314351;
+  border-radius: 9px;
+  background: #14212d;
+  color: #c4d6da;
+  min-height: 78px;
+  padding: 13px 15px;
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  column-gap: 9px;
+  align-content: center;
+}
+.task-journey button:hover {
+  background: #1b3040;
+  border-color: #508a85;
+}
+.task-journey button.selected {
+  border-color: #5ddcc4;
+  background: #19403d;
+  box-shadow: inset 0 0 0 1px #58d4bc33;
+}
+.task-journey button > span {
+  grid-row: 1/3;
+  align-self: center;
+  color: #73cfbe;
+  font-family: Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+}
+.task-journey button strong {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-journey button small {
+  font-size: 10px;
+  color: #96aeb4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+.task-journey button.selected small {
+  color: #b8e2d7;
+}
+.detail-grid.results-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.detail-grid.results-layout > .detail-column:first-child {
+  display: none;
+}
+.results-layout .result-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+.results-layout .result-form > label:nth-child(3),
+.results-layout .result-form > label:nth-child(4),
+.results-layout .result-form > .form-grid {
+  grid-column: auto;
+}
+.results-layout .result-form > label:nth-child(5),
+.results-layout .result-form > .button {
+  grid-column: 1/-1;
+}
+.results-layout .journal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 20px;
+}
+.results-layout .journal-row {
+  border-bottom: 1px solid #2b3b49;
+}
+@media (max-width: 1080px) {
+  .task-journey {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .task-journey {
+    gap: 7px;
+  }
+  .task-journey button {
+    padding: 10px;
+    min-height: 68px;
+  }
+  .task-journey button small {
+    display: none;
+  }
+  .results-layout .result-form,
+  .results-layout .journal {
+    grid-template-columns: 1fr;
+  }
+}

@@ -29,6 +29,7 @@ import {
   type AttemptStatus,
   type Availability,
   type EventRecord,
+  type PlatformId,
   type SaleOpportunity,
 } from '../shared/model';
 
@@ -181,6 +182,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState(Date.now());
   const [usb, setUsb] = useState('尚未检测');
+  const [browserPlatform, setBrowserPlatform] = useState<PlatformId>('damai');
+  const [browserDataStatus, setBrowserDataStatus] = useState('');
+  const [query, setQuery] = useState('');
   const selected = events.find((item) => item.id === selectedId) ?? null;
   const upcoming = useMemo(
     () =>
@@ -191,7 +195,7 @@ export default function App() {
             : event.opportunities
                 .filter(
                   (o) =>
-                    Date.parse(o.startsAt) >= clock &&
+                    Date.parse(o.startsAt) >= clock - 2 * 60 * 60 * 1000 &&
                     o.status !== 'missed' &&
                     o.status !== 'completed',
                 )
@@ -231,11 +235,13 @@ export default function App() {
     setEditing(null);
     setSaleEditor(null);
   }
-  async function mutate(event: EventRecord) {
+  async function mutate(event: EventRecord): Promise<boolean> {
     try {
       await save({ ...event, updatedAt: new Date().toISOString() });
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存失败');
+      return false;
     }
   }
   async function remove() {
@@ -255,6 +261,18 @@ export default function App() {
       setError(e instanceof Error ? e.message : '无法打开入口');
     }
   }
+  async function openInside(eventId: string, opportunityId?: string) {
+    try {
+      await window.ticket.openInside(eventId, opportunityId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '无法打开内置网页');
+    }
+  }
+  const visibleEvents = events.filter((event) =>
+    `${event.title} ${event.venue} ${platformLabels[event.platform]}`
+      .toLocaleLowerCase()
+      .includes(query.trim().toLocaleLowerCase()),
+  );
 
   return (
     <div className="shell">
@@ -303,7 +321,7 @@ export default function App() {
               setSelectedId(null);
             }}
           >
-            <Smartphone size={18} /> Android 连接
+            <Smartphone size={18} /> 设备与会话
           </button>
         </nav>
         <div className="side-note">
@@ -326,7 +344,7 @@ export default function App() {
                 : page === 'guide'
                   ? '平台规则'
                   : page === 'device'
-                    ? 'Android 连接'
+                    ? '设备与会话'
                     : '我的任务'}
           </span>
           <span className="local-badge">
@@ -355,6 +373,7 @@ export default function App() {
               onEditSale={setSaleEditor}
               onMutate={mutate}
               onOpen={openOfficial}
+              onOpenInside={openInside}
             />
           ) : page === 'dashboard' ? (
             <>
@@ -368,6 +387,50 @@ export default function App() {
                   <Plus size={18} /> 新建任务
                 </button>
               </div>
+              {upcoming[0] && (
+                <section className="focus-hero" aria-label="下一次官方机会">
+                  <div className="focus-copy">
+                    <span className="eyebrow">NEXT OFFICIAL WINDOW · 下一次机会</span>
+                    <span className="focus-platform">
+                      {platformLabels[upcoming[0].event.platform]} /{' '}
+                      {saleLabels[upcoming[0].sale.type]}
+                    </span>
+                    <h2>{upcoming[0].event.title}</h2>
+                    <p>
+                      {upcoming[0].sale.eligibility || '请核对本场资格与官方规则'} ·{' '}
+                      {timeText(upcoming[0].sale.startsAt, upcoming[0].sale.timeZone)}{' '}
+                      {upcoming[0].sale.timeZone}
+                    </p>
+                    <div className="focus-actions">
+                      <button
+                        className="button primary"
+                        onClick={() => setSelectedId(upcoming[0].event.id)}
+                      >
+                        查看任务准备 <ArrowRight size={16} />
+                      </button>
+                      {(upcoming[0].sale.url || upcoming[0].event.eventUrl) && (
+                        <button
+                          className="button ghost"
+                          onClick={() => void openInside(upcoming[0].event.id, upcoming[0].sale.id)}
+                        >
+                          <ExternalLink size={16} /> 内置官方网页
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="focus-clock">
+                    <span>
+                      {Date.parse(upcoming[0].sale.startsAt) > clock ? '距离开始' : '已开始'}
+                    </span>
+                    <strong>
+                      {Date.parse(upcoming[0].sale.startsAt) > clock
+                        ? `${Math.floor((Date.parse(upcoming[0].sale.startsAt) - clock) / 86400000)}天 ${String(Math.floor(((Date.parse(upcoming[0].sale.startsAt) - clock) % 86400000) / 3600000)).padStart(2, '0')}:${String(Math.floor(((Date.parse(upcoming[0].sale.startsAt) - clock) % 3600000) / 60000)).padStart(2, '0')}`
+                        : '当前机会'}
+                    </strong>
+                    <small>时间以活动官方页面为准</small>
+                  </div>
+                </section>
+              )}
               <div className="summary-strip">
                 <div>
                   <span>正在跟进</span>
@@ -395,11 +458,20 @@ export default function App() {
                   <span className="eyebrow">TRACKED EVENTS</span>
                   <h2>我的购票任务</h2>
                 </div>
-                <span className="muted">优先按最近修改显示</span>
+                <label className="search-box">
+                  <Search size={16} />
+                  <input
+                    aria-label="搜索购票任务"
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="搜索演出、城市或平台"
+                  />
+                </label>
               </div>
-              {events.length ? (
+              {visibleEvents.length ? (
                 <div className="event-list">
-                  {events.map((event) => {
+                  {visibleEvents.map((event) => {
                     const next = event.opportunities
                       .filter((o) => Date.parse(o.startsAt) >= Date.now())
                       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
@@ -441,13 +513,15 @@ export default function App() {
                   <div className="empty-icon">
                     <Ticket size={27} />
                   </div>
-                  <h3>先从一场确定的演出开始</h3>
+                  <h3>{events.length ? '没有匹配的购票任务' : '先从一场确定的演出开始'}</h3>
                   <p>
                     填入场次、人数、预算和官方规则来源，再补全销售时间。这里不会展示未经核实的库存。
                   </p>
-                  <button className="button secondary" onClick={() => setEditing(true)}>
-                    <Plus size={17} /> 创建第一个任务
-                  </button>
+                  {!events.length && (
+                    <button className="button secondary" onClick={() => setEditing(true)}>
+                      <Plus size={17} /> 创建第一个任务
+                    </button>
+                  )}
                 </div>
               )}
             </>
@@ -509,8 +583,11 @@ export default function App() {
               <div className="guide-callout">
                 <ShieldCheck size={22} />
                 <div>
-                  <strong>当前能力：规则、日历、人工决策与官方入口</strong>
-                  <p>未接入平台实时库存、排队顺位或交易接口。未知能力不会显示为“已适配”。</p>
+                  <strong>当前能力：任务、日历、人工决策与内置官方网页</strong>
+                  <p>
+                    未接入实时库存、排队顺位或自动交易。内置网页的登录会话独立于系统浏览器；部分平台可能要求原生
+                    App。
+                  </p>
                 </div>
               </div>
               <div className="guide-list">
@@ -528,7 +605,7 @@ export default function App() {
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">ANDROID BRIDGE</span>
-                  <h1>连接 Android</h1>
+                  <h1>设备与网页会话</h1>
                   <p>
                     通过 USB 检查设备，并在大麦 App 已安装时尝试唤起
                     App。活动选择和结账全程在手机上人工完成。
@@ -566,6 +643,57 @@ export default function App() {
                   端管理任务、打开已验证的网址。这里不读取手机屏幕，也不模拟点击。
                 </p>
               </div>
+              <div className="device-panel session-panel">
+                <div className="device-illustration">
+                  <ShieldCheck size={40} />
+                </div>
+                <div>
+                  <h2>内置网页的登录数据</h2>
+                  <p>
+                    每个平台在本机使用独立的网页登录会话。清除后需重新登录，当前排队或结账页面不能继续使用。
+                  </p>
+                  <div className="button-row">
+                    <label className="session-select">
+                      选择平台
+                      <select
+                        value={browserPlatform}
+                        onChange={(e) => {
+                          setBrowserPlatform(e.target.value as PlatformId);
+                          setBrowserDataStatus('');
+                        }}
+                      >
+                        {(Object.keys(platformLabels) as PlatformId[])
+                          .filter((platform) => platform !== 'other')
+                          .map((platform) => (
+                            <option key={platform} value={platform}>
+                              {platformLabels[platform]}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <button
+                      className="button ghost"
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            `清除 ${platformLabels[browserPlatform]} 在候票台内置网页中的登录和缓存数据？`,
+                          )
+                        )
+                          return;
+                        try {
+                          await window.ticket.clearBrowserData(browserPlatform);
+                          setBrowserDataStatus('已清除。再次打开该平台的内置网页时需要重新登录。');
+                        } catch (e) {
+                          setBrowserDataStatus(e instanceof Error ? e.message : '清除失败');
+                        }
+                      }}
+                    >
+                      <Trash2 size={16} /> 清除该平台网页数据
+                    </button>
+                  </div>
+                  {browserDataStatus && <p role="status">{browserDataStatus}</p>}
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -584,8 +712,8 @@ export default function App() {
           onClose={() => setSaleEditor(null)}
           onSave={async (item) => {
             const others = selected.opportunities.filter((o) => o.id !== item.id);
-            await mutate({ ...selected, opportunities: [...others, item] });
-            setSaleEditor(null);
+            if (await mutate({ ...selected, opportunities: [...others, item] }))
+              setSaleEditor(null);
           }}
         />
       )}
@@ -602,6 +730,7 @@ function EventDetail({
   onEditSale,
   onMutate,
   onOpen,
+  onOpenInside,
 }: {
   event: EventRecord;
   onBack: () => void;
@@ -609,8 +738,9 @@ function EventDetail({
   onRemove: () => void;
   onAddSale: () => void;
   onEditSale: (value: SaleOpportunity) => void;
-  onMutate: (value: EventRecord) => Promise<void>;
+  onMutate: (value: EventRecord) => Promise<boolean>;
   onOpen: (event: EventRecord, url?: string) => Promise<void>;
+  onOpenInside: (eventId: string, opportunityId?: string) => Promise<void>;
 }) {
   const [availability, setAvailability] = useState<Availability[]>(
     event.tiers.map(() => 'unknown'),
@@ -624,6 +754,7 @@ function EventDetail({
   const [followLocal, setFollowLocal] = useState(
     formatLocalInstant(event.followUntil, event.timeZone),
   );
+  const [detailTab, setDetailTab] = useState<'sales' | 'ready' | 'tickets' | 'results'>('sales');
   const latest = event.attempts.at(-1);
   const orderExists = Boolean(latest && activeOrder.has(latest.status));
   const decision = chooseTier(
@@ -649,7 +780,7 @@ function EventDetail({
   }
   async function addResult(e: FormEvent) {
     e.preventDefault();
-    await onMutate({
+    const saved = await onMutate({
       ...event,
       attempts: [
         ...event.attempts,
@@ -665,6 +796,7 @@ function EventDetail({
         },
       ],
     });
+    if (!saved) return;
     setResultTier('');
     setResultTotal('');
     setEvidence('');
@@ -690,10 +822,17 @@ function EventDetail({
           </button>
           <button
             className="button primary"
+            onClick={() => void onOpenInside(event.id)}
+            disabled={!event.eventUrl}
+          >
+            <ExternalLink size={17} /> 内置官方网页
+          </button>
+          <button
+            className="button ghost"
             onClick={() => void onOpen(event)}
             disabled={!event.eventUrl}
           >
-            <ExternalLink size={17} /> 打开官方网页
+            系统浏览器
           </button>
         </div>
       </div>
@@ -721,356 +860,407 @@ function EventDetail({
           )}
         </div>
       </div>
-      <div className="detail-grid">
+      <div className="task-journey" role="tablist" aria-label="购票流程">
+        {(
+          [
+            ['sales', '01', '官方机会', `${event.opportunities.length} 条已记录`],
+            [
+              'ready',
+              '02',
+              '开售准备',
+              `${Object.values(event.checklist).filter(Boolean).length}/8 已核对`,
+            ],
+            ['tickets', '03', '票档判断', `${event.tiers.length} 个可接受票档`],
+            ['results', '04', '订单结果', latest ? resultLabels[latest.status] : '等待人工记录'],
+          ] as const
+        ).map(([key, num, title, hint]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={detailTab === key}
+            className={detailTab === key ? 'selected' : ''}
+            onClick={() => setDetailTab(key)}
+          >
+            <span>{num}</span>
+            <strong>{title}</strong>
+            <small>{hint}</small>
+          </button>
+        ))}
+      </div>
+      <div className={`detail-grid ${detailTab === 'results' ? 'results-layout' : ''}`}>
         <div className="detail-column">
-          <section className="panel">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">01 / OPPORTUNITIES</span>
-                <h2>官方销售机会</h2>
-              </div>
-              <button className="text-button" onClick={onAddSale}>
-                <Plus size={16} /> 添加机会
-              </button>
-            </div>
-            {event.opportunities.length ? (
-              <div className="opportunity-list">
-                {[...event.opportunities]
-                  .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-                  .map((item) => (
-                    <div className="opportunity" key={item.id}>
-                      <div className="opportunity-head">
-                        <span className="tag">{saleLabels[item.type]}</span>
-                        <span className="opportunity-time">
-                          {timeText(item.startsAt, item.timeZone)}
-                        </span>
-                      </div>
-                      <small>
-                        {item.timeZone} · 来源核实 {item.verifiedAt}
-                      </small>
-                      <p>
-                        {item.eligibility || '资格以本场公告为准'}
-                        {item.note ? ` · ${item.note}` : ''}
-                      </p>
-                      {item.endsAt && <small>截止：{timeText(item.endsAt, item.timeZone)}</small>}
-                      <div className="opportunity-actions">
-                        <select
-                          aria-label={`${saleLabels[item.type]}参与状态`}
-                          value={item.status}
-                          onChange={(e) =>
-                            updateSale(item, e.target.value as SaleOpportunity['status'])
-                          }
-                        >
-                          <option value="planned">计划参加</option>
-                          <option value="registered">已登记 / 参与</option>
-                          <option value="completed">已结束</option>
-                          <option value="missed">已错过</option>
-                        </select>
-                        {item.url && (
-                          <button
-                            className="text-button"
-                            onClick={() => void onOpen(event, item.url)}
-                          >
-                            <ExternalLink size={14} /> 官方入口
-                          </button>
-                        )}
-                        <button className="text-button" onClick={() => onEditSale(item)}>
-                          编辑
-                        </button>
-                        <button
-                          className="text-button danger"
-                          onClick={() => {
-                            if (window.confirm('删除这条销售机会？'))
-                              void onMutate({
-                                ...event,
-                                opportunities: event.opportunities.filter((o) => o.id !== item.id),
-                              });
-                          }}
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="quiet-empty">
-                还没有有来源的销售时间。添加官方公告后才会出现在日历和提醒中。
-              </p>
-            )}
-            <p className="help-note">
-              <Bell size={15} /> 仅应用运行时提醒；候补邀请请同时开启官方 App 通知。
-            </p>
-          </section>
-          <section className="panel">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">02 / READINESS</span>
-                <h2>开售前检查</h2>
-              </div>
-              <span className="counter">
-                {Object.values(event.checklist).filter(Boolean).length} / 8
-              </span>
-            </div>
-            <div className="checklist">
-              {(Object.keys(checklistLabels) as (keyof typeof event.checklist)[]).map((key) => (
-                <label className="check-row" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={event.checklist[key]}
-                    onChange={(e) =>
-                      void onMutate({
-                        ...event,
-                        checklist: { ...event.checklist, [key]: e.target.checked },
-                      })
-                    }
-                  />
-                  <span className="custom-check">
-                    <Check size={14} />
-                  </span>
-                  <span>{checklistLabels[key]}</span>
-                </label>
-              ))}
-            </div>
-            <p className="help-note">只记录已核实项。证件号、账号密码和支付凭据不要输入本工具。</p>
-          </section>
-          <section className="panel">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">03 / TICKET CHOICE</span>
-                <h2>票档决策卡</h2>
-              </div>
-              <span className="muted">人工标记页面状态</span>
-            </div>
-            <p className="panel-intro">
-              排序已固定。只在官方选票页面判断，候补登记按该平台原生规则单独处理。
-            </p>
-            <div className="tier-list">
-              {event.tiers.map((tier, i) => (
-                <div className="tier-row" key={i}>
-                  <span className="tier-letter">{String.fromCharCode(65 + i)}</span>
-                  <div>
-                    <strong>{tier.label}</strong>
-                    <small>
-                      {tier.unitPrice === null
-                        ? '参考单价未知'
-                        : `${tier.unitPrice.toLocaleString()} ${event.currency} / 张`}
-                    </small>
-                  </div>
-                  <select
-                    aria-label={`${tier.label}页面状态`}
-                    value={availability[i] ?? 'unknown'}
-                    onChange={(e) =>
-                      setAvailability(
-                        availability.map((value, n) =>
-                          n === i ? (e.target.value as Availability) : value,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="unknown">页面未知</option>
-                    <option value="available">人工确认可选</option>
-                    <option value="sold_out">人工确认不可选</option>
-                  </select>
+          {detailTab === 'sales' && (
+            <section className="panel">
+              <div className="section-title">
+                <div>
+                  <span className="eyebrow">01 / OPPORTUNITIES</span>
+                  <h2>官方销售机会</h2>
                 </div>
-              ))}
-            </div>
-            <div className={`decision ${orderExists ? 'decision-quiet' : ''}`}>
-              <strong>
-                {orderExists
-                  ? '已有待完成或已确认订单'
-                  : decision.kind === 'recommend'
-                    ? `建议先核对 ${event.tiers[decision.index].label}`
-                    : decision.kind === 'uncertain'
-                      ? '状态未明，先确认页面'
-                      : decision.kind === 'check_total'
-                        ? '先核对实际总额'
-                        : decision.kind === 'over_budget'
-                          ? '当前可选票超出预算'
-                          : '暂无可买票档'}
-              </strong>
-              <p>{orderExists ? '优先完成已有订单，不继续提交新单。' : decision.note}</p>
-            </div>
-          </section>
-        </div>
-        <div className="detail-column">
-          <section className="panel">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">SOURCE OF TRUTH</span>
-                <h2>本场规则</h2>
+                <button className="text-button" onClick={onAddSale}>
+                  <Plus size={16} /> 添加机会
+                </button>
               </div>
-              <Link2 size={18} className="muted" />
-            </div>
-            <p className="rule-note">
-              {event.ruleNote || '尚未摘录本场限制；请阅读官方项目页面并补充。'}
-            </p>
-            <div className="source-box">
-              <small>核实 {event.verifiedAt}</small>
-              <span title={event.sourceUrl}>{event.sourceUrl}</span>
-            </div>
-            <div className="capability-note">
-              <ShieldCheck size={18} />
-              <p>
-                可用：官方入口、日历、清单、人工选择和结果记录。
-                <br />
-                未接入：实时库存、自动排队、自动提交。
-              </p>
-            </div>
-          </section>
-          <section className="panel">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">04 / OUTCOME</span>
-                <h2>购票结果记录</h2>
-              </div>
-            </div>
-            <p className="panel-intro">
-              点击、占票、待支付和出票不是同一个结果，请按官方凭据手动记录。
-            </p>
-            <form onSubmit={addResult} className="result-form">
-              <label>
-                对应销售机会
-                <select
-                  value={resultOpportunity}
-                  onChange={(e) => setResultOpportunity(e.target.value)}
-                >
-                  <option value="">未指定 / 后续人工处理</option>
-                  {event.opportunities.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {saleLabels[item.type]} · {timeText(item.startsAt, item.timeZone)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                当前阶段
-                <select
-                  value={resultStatus}
-                  onChange={(e) => setResultStatus(e.target.value as AttemptStatus)}
-                >
-                  {Object.entries(resultLabels).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="form-grid">
-                <label>
-                  票档
-                  <input
-                    value={resultTier}
-                    onChange={(e) => setResultTier(e.target.value)}
-                    placeholder="选填"
-                  />
-                </label>
-                <label>
-                  实付总额
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={resultTotal}
-                    onChange={(e) => setResultTotal(e.target.value)}
-                    placeholder="选填"
-                  />
-                </label>
-              </div>
-              <label>
-                确认依据
-                <input
-                  required={activeOrder.has(resultStatus)}
-                  value={evidence}
-                  onChange={(e) => setEvidence(e.target.value)}
-                  placeholder="例如：官方订单号后四位（勿填完整证件）"
-                />
-              </label>
-              <label>
-                备注
-                <textarea
-                  rows={2}
-                  value={resultNote}
-                  onChange={(e) => setResultNote(e.target.value)}
-                  placeholder="失败原因、截止时间或需要人工处理的事项"
-                />
-              </label>
-              <button className="button secondary" type="submit">
-                <Plus size={16} /> 记录当前结果
-              </button>
-            </form>
-            {event.attempts.length ? (
-              <div className="journal">
-                {[...event.attempts].reverse().map((attempt) => (
-                  <div className="journal-row" key={attempt.id}>
-                    <div className="journal-dot" />
-                    <div>
-                      <div>
-                        <StatusPill status={attempt.status} />
-                        <small>{timeText(attempt.at)}</small>
+              {event.opportunities.length ? (
+                <div className="opportunity-list">
+                  {[...event.opportunities]
+                    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+                    .map((item) => (
+                      <div className="opportunity" key={item.id}>
+                        <div className="opportunity-head">
+                          <span className="tag">{saleLabels[item.type]}</span>
+                          <span className="opportunity-time">
+                            {timeText(item.startsAt, item.timeZone)}
+                          </span>
+                        </div>
+                        <small>
+                          {item.timeZone} · 来源核实 {item.verifiedAt}
+                        </small>
+                        <p>
+                          {item.eligibility || '资格以本场公告为准'}
+                          {item.note ? ` · ${item.note}` : ''}
+                        </p>
+                        {item.endsAt && <small>截止：{timeText(item.endsAt, item.timeZone)}</small>}
+                        <div className="opportunity-actions">
+                          <select
+                            aria-label={`${saleLabels[item.type]}参与状态`}
+                            value={item.status}
+                            onChange={(e) =>
+                              updateSale(item, e.target.value as SaleOpportunity['status'])
+                            }
+                          >
+                            <option value="planned">计划参加</option>
+                            <option value="registered">已登记 / 参与</option>
+                            <option value="completed">已结束</option>
+                            <option value="missed">已错过</option>
+                          </select>
+                          {item.url && (
+                            <>
+                              <button
+                                className="text-button"
+                                onClick={() => void onOpenInside(event.id, item.id)}
+                              >
+                                <ExternalLink size={14} /> 内置网页
+                              </button>
+                              <button
+                                className="text-button"
+                                onClick={() => void onOpen(event, item.url)}
+                              >
+                                系统浏览器
+                              </button>
+                            </>
+                          )}
+                          <button className="text-button" onClick={() => onEditSale(item)}>
+                            编辑
+                          </button>
+                          <button
+                            className="text-button danger"
+                            onClick={() => {
+                              if (window.confirm('删除这条销售机会？'))
+                                void onMutate({
+                                  ...event,
+                                  opportunities: event.opportunities.filter(
+                                    (o) => o.id !== item.id,
+                                  ),
+                                });
+                            }}
+                          >
+                            删除
+                          </button>
+                        </div>
                       </div>
-                      <p>
-                        {[
-                          attempt.opportunityId
-                            ? saleLabels[
-                                event.opportunities.find((o) => o.id === attempt.opportunityId)
-                                  ?.type ?? 'public'
-                              ]
-                            : '',
-                          attempt.tier,
-                          attempt.total === null ? '' : `${attempt.total} ${event.currency}`,
-                          attempt.note,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') || '人工记录'}
-                      </p>
-                      {attempt.evidence && <small>依据：{attempt.evidence}</small>}
+                    ))}
+                </div>
+              ) : (
+                <p className="quiet-empty">
+                  还没有有来源的销售时间。添加官方公告后才会出现在日历和提醒中。
+                </p>
+              )}
+              <p className="help-note">
+                <Bell size={15} /> 仅应用运行时提醒；候补邀请请同时开启官方 App 通知。
+              </p>
+            </section>
+          )}
+          {detailTab === 'ready' && (
+            <section className="panel">
+              <div className="section-title">
+                <div>
+                  <span className="eyebrow">02 / READINESS</span>
+                  <h2>开售前检查</h2>
+                </div>
+                <span className="counter">
+                  {Object.values(event.checklist).filter(Boolean).length} / 8
+                </span>
+              </div>
+              <div className="checklist">
+                {(Object.keys(checklistLabels) as (keyof typeof event.checklist)[]).map((key) => (
+                  <label className="check-row" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={event.checklist[key]}
+                      onChange={(e) =>
+                        void onMutate({
+                          ...event,
+                          checklist: { ...event.checklist, [key]: e.target.checked },
+                        })
+                      }
+                    />
+                    <span className="custom-check">
+                      <Check size={14} />
+                    </span>
+                    <span>{checklistLabels[key]}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="help-note">
+                只记录已核实项。证件号、账号密码和支付凭据不要输入本工具。
+              </p>
+            </section>
+          )}
+          {detailTab === 'tickets' && (
+            <section className="panel">
+              <div className="section-title">
+                <div>
+                  <span className="eyebrow">03 / TICKET CHOICE</span>
+                  <h2>票档决策卡</h2>
+                </div>
+                <span className="muted">人工标记页面状态</span>
+              </div>
+              <p className="panel-intro">
+                排序已固定。只在官方选票页面判断，候补登记按该平台原生规则单独处理。
+              </p>
+              <div className="tier-list">
+                {event.tiers.map((tier, i) => (
+                  <div className="tier-row" key={i}>
+                    <span className="tier-letter">{String.fromCharCode(65 + i)}</span>
+                    <div>
+                      <strong>{tier.label}</strong>
+                      <small>
+                        {tier.unitPrice === null
+                          ? '参考单价未知'
+                          : `${tier.unitPrice.toLocaleString()} ${event.currency} / 张`}
+                      </small>
                     </div>
+                    <select
+                      aria-label={`${tier.label}页面状态`}
+                      value={availability[i] ?? 'unknown'}
+                      onChange={(e) =>
+                        setAvailability(
+                          availability.map((value, n) =>
+                            n === i ? (e.target.value as Availability) : value,
+                          ),
+                        )
+                      }
+                    >
+                      <option value="unknown">页面未知</option>
+                      <option value="available">人工确认可选</option>
+                      <option value="sold_out">人工确认不可选</option>
+                    </select>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="quiet-empty">尚无尝试记录。失败和结果未知也值得保存。</p>
-            )}
-          </section>
-          <section className="panel subtle-panel">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">FOLLOW UP</span>
-                <h2>后续机会</h2>
+              <div className={`decision ${orderExists ? 'decision-quiet' : ''}`}>
+                <strong>
+                  {orderExists
+                    ? '已有待完成或已确认订单'
+                    : decision.kind === 'recommend'
+                      ? `建议先核对 ${event.tiers[decision.index].label}`
+                      : decision.kind === 'uncertain'
+                        ? '状态未明，先确认页面'
+                        : decision.kind === 'check_total'
+                          ? '先核对实际总额'
+                          : decision.kind === 'over_budget'
+                            ? '当前可选票超出预算'
+                            : '暂无可买票档'}
+                </strong>
+                <p>{orderExists ? '优先完成已有订单，不继续提交新单。' : decision.note}</p>
               </div>
-            </div>
-            <p>
-              默认跟进到演出开始。没有官方补票或候补来源时，状态保持“暂无已确认后续机会”，不预测整点回流。
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                try {
-                  const at = parseLocalInstant(followLocal, event.timeZone);
-                  if (at > event.sessionAt) throw new Error('跟进截止不能晚于演出开始');
-                  void onMutate({ ...event, followUntil: at });
-                } catch {
-                  window.alert('请输入有效的截止时间，且不能晚于演出开始。');
-                }
-              }}
-            >
-              <label>
-                跟进截止（活动所在地时间）
-                <input
-                  type="datetime-local"
-                  value={followLocal}
-                  onChange={(e) => setFollowLocal(e.target.value)}
-                />
-              </label>
-              <button className="text-button" type="submit">
-                保存跟进截止
+            </section>
+          )}
+        </div>
+        <div className="detail-column">
+          {detailTab !== 'results' && (
+            <section className="panel">
+              <div className="section-title">
+                <div>
+                  <span className="eyebrow">SOURCE OF TRUTH</span>
+                  <h2>本场规则</h2>
+                </div>
+                <Link2 size={18} className="muted" />
+              </div>
+              <p className="rule-note">
+                {event.ruleNote || '尚未摘录本场限制；请阅读官方项目页面并补充。'}
+              </p>
+              <div className="source-box">
+                <small>核实 {event.verifiedAt}</small>
+                <span title={event.sourceUrl}>{event.sourceUrl}</span>
+              </div>
+              <div className="capability-note">
+                <ShieldCheck size={18} />
+                <p>
+                  可用：官方入口、日历、清单、人工选择和结果记录。
+                  <br />
+                  未接入：实时库存、自动排队、自动提交。
+                </p>
+              </div>
+            </section>
+          )}
+          {detailTab === 'results' && (
+            <section className="panel">
+              <div className="section-title">
+                <div>
+                  <span className="eyebrow">04 / OUTCOME</span>
+                  <h2>购票结果记录</h2>
+                </div>
+              </div>
+              <p className="panel-intro">
+                点击、占票、待支付和出票不是同一个结果，请按官方凭据手动记录。
+              </p>
+              <form onSubmit={addResult} className="result-form">
+                <label>
+                  对应销售机会
+                  <select
+                    value={resultOpportunity}
+                    onChange={(e) => setResultOpportunity(e.target.value)}
+                  >
+                    <option value="">未指定 / 后续人工处理</option>
+                    {event.opportunities.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {saleLabels[item.type]} · {timeText(item.startsAt, item.timeZone)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  当前阶段
+                  <select
+                    value={resultStatus}
+                    onChange={(e) => setResultStatus(e.target.value as AttemptStatus)}
+                  >
+                    {Object.entries(resultLabels).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="form-grid">
+                  <label>
+                    票档
+                    <input
+                      value={resultTier}
+                      onChange={(e) => setResultTier(e.target.value)}
+                      placeholder="选填"
+                    />
+                  </label>
+                  <label>
+                    实付总额
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={resultTotal}
+                      onChange={(e) => setResultTotal(e.target.value)}
+                      placeholder="选填"
+                    />
+                  </label>
+                </div>
+                <label>
+                  确认依据
+                  <input
+                    required={activeOrder.has(resultStatus)}
+                    value={evidence}
+                    onChange={(e) => setEvidence(e.target.value)}
+                    placeholder="例如：官方订单号后四位（勿填完整证件）"
+                  />
+                </label>
+                <label>
+                  备注
+                  <textarea
+                    rows={2}
+                    value={resultNote}
+                    onChange={(e) => setResultNote(e.target.value)}
+                    placeholder="失败原因、截止时间或需要人工处理的事项"
+                  />
+                </label>
+                <button className="button secondary" type="submit">
+                  <Plus size={16} /> 记录当前结果
+                </button>
+              </form>
+              {event.attempts.length ? (
+                <div className="journal">
+                  {[...event.attempts].reverse().map((attempt) => (
+                    <div className="journal-row" key={attempt.id}>
+                      <div className="journal-dot" />
+                      <div>
+                        <div>
+                          <StatusPill status={attempt.status} />
+                          <small>{timeText(attempt.at)}</small>
+                        </div>
+                        <p>
+                          {[
+                            attempt.opportunityId
+                              ? saleLabels[
+                                  event.opportunities.find((o) => o.id === attempt.opportunityId)
+                                    ?.type ?? 'public'
+                                ]
+                              : '',
+                            attempt.tier,
+                            attempt.total === null ? '' : `${attempt.total} ${event.currency}`,
+                            attempt.note,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || '人工记录'}
+                        </p>
+                        {attempt.evidence && <small>依据：{attempt.evidence}</small>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="quiet-empty">尚无尝试记录。失败和结果未知也值得保存。</p>
+              )}
+            </section>
+          )}
+          {detailTab === 'sales' && (
+            <section className="panel subtle-panel">
+              <div className="section-title">
+                <div>
+                  <span className="eyebrow">FOLLOW UP</span>
+                  <h2>后续机会</h2>
+                </div>
+              </div>
+              <p>
+                默认跟进到演出开始。没有官方补票或候补来源时，状态保持“暂无已确认后续机会”，不预测整点回流。
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  try {
+                    const at = parseLocalInstant(followLocal, event.timeZone);
+                    if (at > event.sessionAt) throw new Error('跟进截止不能晚于演出开始');
+                    void onMutate({ ...event, followUntil: at });
+                  } catch {
+                    window.alert('请输入有效的截止时间，且不能晚于演出开始。');
+                  }
+                }}
+              >
+                <label>
+                  跟进截止（活动所在地时间）
+                  <input
+                    type="datetime-local"
+                    value={followLocal}
+                    onChange={(e) => setFollowLocal(e.target.value)}
+                  />
+                </label>
+                <button className="text-button" type="submit">
+                  保存跟进截止
+                </button>
+              </form>
+              <button className="text-button danger" onClick={onRemove}>
+                <Trash2 size={15} /> 删除本地任务
               </button>
-            </form>
-            <button className="text-button danger" onClick={onRemove}>
-              <Trash2 size={15} /> 删除本地任务
-            </button>
-          </section>
+            </section>
+          )}
         </div>
       </div>
     </>
