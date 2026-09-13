@@ -182,6 +182,7 @@ function StatusPill({ status }: { status: AttemptStatus }) {
 }
 
 export default function App() {
+  const web = window.ticket.environment === 'web';
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailStartTab, setDetailStartTab] = useState<DetailTab>('sales');
@@ -356,7 +357,7 @@ export default function App() {
               setSelectedId(null);
             }}
           >
-            <Smartphone size={18} /> 设备与会话
+            <Smartphone size={18} /> {web ? '网页版本说明' : '设备与会话'}
           </button>
         </nav>
         <div className="side-note">
@@ -379,7 +380,9 @@ export default function App() {
                 : page === 'guide'
                   ? '平台规则'
                   : page === 'device'
-                    ? '设备与会话'
+                    ? web
+                      ? '网页版本说明'
+                      : '设备与会话'
                     : '我的任务'}
           </span>
           <div className="topbar-actions">
@@ -493,7 +496,7 @@ export default function App() {
                           className="button ghost"
                           onClick={() => void openInside(upcoming[0].event.id, upcoming[0].sale.id)}
                         >
-                          <ExternalLink size={16} /> 内置官方网页
+                          <ExternalLink size={16} /> {web ? '打开官方网页' : '内置官方网页'}
                         </button>
                       )}
                     </div>
@@ -662,10 +665,12 @@ export default function App() {
               <div className="guide-callout">
                 <ShieldCheck size={22} />
                 <div>
-                  <strong>当前能力：任务、日历、人工决策与内置官方网页</strong>
+                  <strong>当前能力：任务、日历、人工决策与官方网页入口</strong>
                   <p>
-                    未接入实时库存、排队顺位或自动交易。内置网页的登录会话独立于系统浏览器；部分平台可能要求原生
-                    App。
+                    未接入实时库存、排队顺位或自动交易。
+                    {web
+                      ? '浏览器版会在新标签页打开官方入口；任务只保存在当前浏览器。部分平台可能要求原生 App。'
+                      : '内置网页的登录会话独立于系统浏览器；部分平台可能要求原生 App。'}
                   </p>
                 </div>
               </div>
@@ -677,6 +682,23 @@ export default function App() {
                     <small>资料来源：{new URL(item.source).hostname}</small>
                   </div>
                 ))}
+              </div>
+            </>
+          ) : web ? (
+            <>
+              <div className="page-heading">
+                <div>
+                  <span className="eyebrow">WEB EDITION</span>
+                  <h1>网页版本说明</h1>
+                  <p>任务保存在当前浏览器的本地站点数据中，不会同步到 Windows 桌面版。</p>
+                </div>
+              </div>
+              <div className="guide-callout">
+                <Info size={20} />
+                <p>
+                  官方购票入口会在新标签页打开。浏览器版没有内置网页会话、桌面提醒或 Android USB
+                  功能。请保留官方 App 通知，并定期备份重要任务信息；清除浏览器站点数据会删除任务。
+                </p>
               </div>
             </>
           ) : (
@@ -906,7 +928,8 @@ function EventDetail({
             onClick={() => void onOpenInside(event.id)}
             disabled={!event.eventUrl}
           >
-            <ExternalLink size={17} /> 内置官方网页
+            <ExternalLink size={17} />{' '}
+            {window.ticket.environment === 'web' ? '打开官方网页' : '内置官方网页'}
           </button>
           <button
             className="button ghost"

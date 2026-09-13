@@ -1,11 +1,15 @@
 {
   "name": "ticket-window",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "本地官方购票流程辅助工具",
   "main": "dist-electron/electron/main.js",
   "scripts": {
+    "start": "pnpm build && electron .",
     "dev": "pnpm build && electron .",
+    "web": "vite --host 127.0.0.1 --open",
+    "web:preview": "vite preview --host 127.0.0.1 --open",
+    "test:web": "node tests/web.cjs",
     "build": "tsc -p tsconfig.electron.json && tsc -p tsconfig.json && vite build",
     "test": "vitest run",
     "test:ui": "pnpm build && node tests/smoke.cjs",

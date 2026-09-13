@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { EventRecord, PlatformId } from '../shared/model';
 
 contextBridge.exposeInMainWorld('ticket', {
+  environment: 'desktop',
   list: (): Promise<EventRecord[]> => ipcRenderer.invoke('events:list'),
   recoveryStatus: (): Promise<boolean> => ipcRenderer.invoke('events:recovery-status'),
   setTheme: (theme: 'light' | 'dark'): Promise<void> => ipcRenderer.invoke('ui:set-theme', theme),

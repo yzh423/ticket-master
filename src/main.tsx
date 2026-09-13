@@ -5,12 +5,22 @@ import './styles.css';
 import './theme.css';
 import './journey.css';
 import './adaptive.css';
+import { installWebBridge } from './web-bridge';
 
 const savedTheme = localStorage.getItem('ticket-theme');
 document.documentElement.dataset.theme = savedTheme === 'dark' ? 'dark' : 'light';
+installWebBridge();
 
 createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+  window.ticket ? (
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  ) : (
+    <main style={{ maxWidth: 640, margin: '12vh auto', padding: 32, lineHeight: 1.8 }}>
+      <h1>候票台未能连接本地服务</h1>
+      <p>桌面版请运行 pnpm start；网页版本请运行 pnpm web，再访问终端显示的地址。</p>
+      <p>直接双击 index.html 无法启动应用。</p>
+    </main>
+  ),
 );

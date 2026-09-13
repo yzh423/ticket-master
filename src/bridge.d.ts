@@ -3,6 +3,7 @@ import type { BrowserState } from '../shared/browser';
 declare global {
   interface Window {
     ticket: {
+      environment: 'desktop' | 'web';
       list(): Promise<EventRecord[]>;
       recoveryStatus(): Promise<boolean>;
       setTheme(theme: 'light' | 'dark'): Promise<void>;
