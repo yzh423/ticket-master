@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
   Bell,
@@ -23,10 +23,16 @@ import {
 import { EventForm } from './components/EventForm';
 import { OpportunityForm } from './components/OpportunityForm';
 import {
+  createEventMutationQueue,
+  mergeRuleEdit,
+  removeSaleKeepingResults,
+} from './event-mutation';
+import {
   chooseTier,
   formatLocalInstant,
   hasOpenOrder,
   parseLocalInstant,
+  pendingPaymentAttempts,
   preparationGaps,
 } from '../shared/rules';
 import {
@@ -183,6 +189,8 @@ function StatusPill({ status }: { status: AttemptStatus }) {
 
 export default function App() {
   const web = window.ticket.environment === 'web';
+  const mutationQueue = useMemo(() => createEventMutationQueue(window.ticket), []);
+  const pendingMutations = useRef(0);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailStartTab, setDetailStartTab] = useState<DetailTab>('sales');
@@ -199,6 +207,7 @@ export default function App() {
   const [usb, setUsb] = useState('尚未检测');
   const [browserPlatform, setBrowserPlatform] = useState<PlatformId>('damai');
   const [browserDataStatus, setBrowserDataStatus] = useState('');
+  const [backupStatus, setBackupStatus] = useState('');
   const [query, setQuery] = useState('');
   const selected = events.find((item) => item.id === selectedId) ?? null;
   const upcoming = useMemo(
@@ -222,7 +231,16 @@ export default function App() {
   const focusGaps = upcoming[0]
     ? preparationGaps(upcoming[0].event.checklist, upcoming[0].sale.type)
     : [];
-  const focusOrder = upcoming[0] ? hasOpenOrder(upcoming[0].event.attempts) : false;
+  const pendingOrders = events
+    .flatMap((event) =>
+      pendingPaymentAttempts(event.attempts).map((attempt) => ({ event, attempt })),
+    )
+    .sort((a, b) =>
+      (a.attempt.paymentDeadline ?? '9999').localeCompare(b.attempt.paymentDeadline ?? '9999'),
+    );
+  const focusOrder = upcoming[0]
+    ? pendingPaymentAttempts(upcoming[0].event.attempts).length > 0
+    : false;
 
   function openEvent(id: string, tab: DetailTab = 'sales') {
     setDetailStartTab(tab);
@@ -250,7 +268,7 @@ export default function App() {
       .catch(() => {});
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
     const unsubscribe = window.ticket.onChanged(() => {
-      void reload();
+      if (pendingMutations.current === 0) void reload();
     });
     return () => {
       window.clearInterval(timer);
@@ -261,23 +279,50 @@ export default function App() {
     const next = theme === 'light' ? 'dark' : 'light';
     setTheme(next);
     document.documentElement.dataset.theme = next;
-    localStorage.setItem('ticket-theme', next);
+    try {
+      localStorage.setItem('ticket-theme', next);
+    } catch {
+      // Theme remains usable for this session even when storage is unavailable.
+    }
     void window.ticket.setTheme(next);
   }
   async function save(event: EventRecord) {
-    const next = await window.ticket.save(event);
-    await reload();
-    openEvent(next.id);
-    setEditing(null);
-    setSaleEditor(null);
+    if (events.some((item) => item.id === event.id)) {
+      pendingMutations.current++;
+      try {
+        const next = await mutationQueue(event.id, (current) => mergeRuleEdit(current, event));
+        openEvent(next.id);
+        setEditing(null);
+        setSaleEditor(null);
+      } finally {
+        pendingMutations.current--;
+        if (pendingMutations.current === 0) await reload();
+      }
+    } else {
+      const next = await window.ticket.save(event);
+      await reload();
+      openEvent(next.id);
+      setEditing(null);
+      setSaleEditor(null);
+    }
   }
-  async function mutate(event: EventRecord): Promise<boolean> {
+  async function mutate(update: (current: EventRecord) => EventRecord): Promise<boolean> {
+    const eventId = selected?.id;
+    if (!eventId) {
+      setError('任务已不存在，请返回列表重新选择');
+      return false;
+    }
+    pendingMutations.current++;
+    setEvents((current) => current.map((item) => (item.id === eventId ? update(item) : item)));
     try {
-      await save({ ...event, updatedAt: new Date().toISOString() });
+      await mutationQueue(eventId, update);
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存失败');
       return false;
+    } finally {
+      pendingMutations.current--;
+      if (pendingMutations.current === 0) await reload();
     }
   }
   async function remove() {
@@ -302,6 +347,40 @@ export default function App() {
       await window.ticket.openInside(eventId, opportunityId);
     } catch (e) {
       setError(e instanceof Error ? e.message : '无法打开内置网页');
+    }
+  }
+  async function openReference(eventId: string, opportunityId?: string) {
+    try {
+      await window.ticket.openReference(eventId, opportunityId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法打开规则来源');
+    }
+  }
+  async function downloadWebBackup() {
+    try {
+      const raw = await window.ticket.exportBackup?.();
+      if (!raw) throw new Error('当前版本不支持导出');
+      const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `候票台-网页备份-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      setBackupStatus('备份已下载。请妥善保管文件，其中包含你的任务与备注。');
+    } catch (cause) {
+      setBackupStatus(cause instanceof Error ? cause.message : '下载备份失败');
+    }
+  }
+  async function restoreWebBackup(file: File) {
+    if (!window.confirm('导入会覆盖当前浏览器中的全部候票台任务。请先下载现有备份，确定继续吗？'))
+      return;
+    try {
+      const count = await window.ticket.importBackup?.(await file.text());
+      if (count === undefined) throw new Error('当前版本不支持导入');
+      await reload();
+      setBackupStatus(`已恢复 ${count} 个任务。`);
+    } catch (cause) {
+      setBackupStatus(cause instanceof Error ? cause.message : '导入备份失败');
     }
   }
   const visibleEvents = events.filter((event) =>
@@ -422,6 +501,7 @@ export default function App() {
           ) : selected ? (
             <EventDetail
               event={selected}
+              clock={clock}
               initialTab={detailStartTab}
               onBack={() => setSelectedId(null)}
               onEdit={() => setEditing(selected)}
@@ -431,6 +511,7 @@ export default function App() {
               onMutate={mutate}
               onOpen={openOfficial}
               onOpenInside={openInside}
+              onReference={openReference}
             />
           ) : page === 'dashboard' ? (
             <>
@@ -444,6 +525,26 @@ export default function App() {
                   <Plus size={18} /> 新建任务
                 </button>
               </div>
+              {pendingOrders[0] && (
+                <section className="payment-deadline home-payment" aria-label="待支付订单">
+                  <div>
+                    <strong>{pendingOrders[0].event.title} · 待支付订单</strong>
+                    <span>
+                      {pendingOrders[0].attempt.paymentDeadline
+                        ? Date.parse(pendingOrders[0].attempt.paymentDeadline) > clock
+                          ? `你记录的支付截止约剩 ${Math.ceil((Date.parse(pendingOrders[0].attempt.paymentDeadline) - clock) / 60_000)} 分钟`
+                          : '记录的截止时间已过，请立即核对官方订单状态'
+                        : '尚未记录支付截止时间，请以官方订单页倒计时为准'}
+                    </span>
+                  </div>
+                  <button
+                    className="button secondary"
+                    onClick={() => openEvent(pendingOrders[0].event.id, 'results')}
+                  >
+                    查看订单结果 <ArrowRight size={16} />
+                  </button>
+                </section>
+              )}
               {upcoming[0] && (
                 <section className="focus-hero" aria-label="下一次官方机会">
                   <div className="focus-copy">
@@ -523,10 +624,14 @@ export default function App() {
                 <div>
                   <span>接下来</span>
                   <strong>
-                    {upcoming.length ? timeText(upcoming[0].sale.startsAt).slice(5, 16) : '—'}
+                    {upcoming.length
+                      ? timeText(upcoming[0].sale.startsAt, upcoming[0].sale.timeZone).slice(5, 16)
+                      : '—'}
                   </strong>
                   <small>
-                    {upcoming.length ? saleLabels[upcoming[0].sale.type] : '暂无已确认机会'}
+                    {upcoming.length
+                      ? `${saleLabels[upcoming[0].sale.type]} · 当地时间`
+                      : '暂无已确认机会'}
                   </small>
                 </div>
                 <div className="summary-advice">
@@ -700,6 +805,38 @@ export default function App() {
                   功能。请保留官方 App 通知，并定期备份重要任务信息；清除浏览器站点数据会删除任务。
                 </p>
               </div>
+              <div className="device-panel session-panel">
+                <div className="device-illustration">
+                  <ShieldCheck size={40} />
+                </div>
+                <div>
+                  <h2>任务备份与恢复</h2>
+                  <p>备份只包含候票台任务。导入前会校验全部记录，再一次性替换当前浏览器的数据。</p>
+                  <div className="button-row">
+                    <button className="button secondary" onClick={() => void downloadWebBackup()}>
+                      下载任务备份
+                    </button>
+                    <button
+                      className="button ghost"
+                      onClick={() => document.getElementById('web-backup-file')?.click()}
+                    >
+                      导入备份
+                    </button>
+                    <input
+                      id="web-backup-file"
+                      hidden
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (file) void restoreWebBackup(file);
+                      }}
+                    />
+                  </div>
+                  {backupStatus && <p role="status">{backupStatus}</p>}
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -812,8 +949,12 @@ export default function App() {
           initial={saleEditor === true ? undefined : saleEditor}
           onClose={() => setSaleEditor(null)}
           onSave={async (item) => {
-            const others = selected.opportunities.filter((o) => o.id !== item.id);
-            if (await mutate({ ...selected, opportunities: [...others, item] }))
+            if (
+              await mutate((current) => ({
+                ...current,
+                opportunities: [...current.opportunities.filter((o) => o.id !== item.id), item],
+              }))
+            )
               setSaleEditor(null);
           }}
         />
@@ -824,6 +965,7 @@ export default function App() {
 
 function EventDetail({
   event,
+  clock,
   initialTab,
   onBack,
   onEdit,
@@ -833,17 +975,20 @@ function EventDetail({
   onMutate,
   onOpen,
   onOpenInside,
+  onReference,
 }: {
   event: EventRecord;
+  clock: number;
   initialTab: DetailTab;
   onBack: () => void;
   onEdit: () => void;
   onRemove: () => void;
   onAddSale: () => void;
   onEditSale: (value: SaleOpportunity) => void;
-  onMutate: (value: EventRecord) => Promise<boolean>;
+  onMutate: (update: (current: EventRecord) => EventRecord) => Promise<boolean>;
   onOpen: (event: EventRecord, url?: string) => Promise<void>;
   onOpenInside: (eventId: string, opportunityId?: string) => Promise<void>;
+  onReference: (eventId: string, opportunityId?: string) => Promise<void>;
 }) {
   const [availability, setAvailability] = useState<Availability[]>(
     event.tiers.map(() => 'unknown'),
@@ -851,6 +996,10 @@ function EventDetail({
   const [resultStatus, setResultStatus] = useState<AttemptStatus>('unknown');
   const [resultTier, setResultTier] = useState('');
   const [resultTotal, setResultTotal] = useState('');
+  const [resultDeadlineLocal, setResultDeadlineLocal] = useState('');
+  const [resultError, setResultError] = useState('');
+  const [resultBusy, setResultBusy] = useState(false);
+  const resultSubmitting = useRef(false);
   const [evidence, setEvidence] = useState('');
   const [resultNote, setResultNote] = useState('');
   const [resultOpportunity, setResultOpportunity] = useState('');
@@ -860,50 +1009,74 @@ function EventDetail({
   const [detailTab, setDetailTab] = useState<DetailTab>(initialTab);
   const latest = event.attempts.at(-1);
   const orderExists = hasOpenOrder(event.attempts);
+  const pendingDeadline = pendingPaymentAttempts(event.attempts)
+    .filter((attempt) => attempt.paymentDeadline)
+    .sort((a, b) => a.paymentDeadline!.localeCompare(b.paymentDeadline!))[0]?.paymentDeadline;
+  const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const platformGuidance = guide.find((item) => item.id === event.platform);
   const decision = chooseTier(
     event.tiers,
     event.tiers.map((_, i) => availability[i] ?? 'unknown'),
     event.quantity,
     event.budget,
   );
-  useEffect(
-    () => setAvailability(event.tiers.map(() => 'unknown')),
-    [event.id, event.tiers.length],
-  );
+  const tierSignature = JSON.stringify(event.tiers);
+  useEffect(() => setAvailability(event.tiers.map(() => 'unknown')), [event.id, tierSignature]);
   useEffect(
     () => setFollowLocal(formatLocalInstant(event.followUntil, event.timeZone)),
     [event.id, event.followUntil, event.timeZone],
   );
   useEffect(() => setResultOpportunity(''), [event.id]);
   function updateSale(item: SaleOpportunity, status: SaleOpportunity['status']) {
-    void onMutate({
-      ...event,
-      opportunities: event.opportunities.map((o) => (o.id === item.id ? { ...o, status } : o)),
-    });
+    void onMutate((current) => ({
+      ...current,
+      opportunities: current.opportunities.map((o) => (o.id === item.id ? { ...o, status } : o)),
+    }));
   }
   async function addResult(e: FormEvent) {
     e.preventDefault();
-    const saved = await onMutate({
-      ...event,
-      attempts: [
-        ...event.attempts,
-        {
-          id: crypto.randomUUID(),
-          at: new Date().toISOString(),
-          opportunityId: resultOpportunity || null,
-          status: resultStatus,
-          tier: resultTier.trim(),
-          total: resultTotal === '' ? null : Number(resultTotal),
-          evidence: evidence.trim(),
-          note: resultNote.trim(),
-        },
-      ],
-    });
-    if (!saved) return;
-    setResultTier('');
-    setResultTotal('');
-    setEvidence('');
-    setResultNote('');
+    if (resultSubmitting.current) return;
+    resultSubmitting.current = true;
+    setResultBusy(true);
+    try {
+      setResultError('');
+      let paymentDeadline: string | null = null;
+      try {
+        if (resultStatus === 'pending_payment' && resultDeadlineLocal)
+          paymentDeadline = parseLocalInstant(resultDeadlineLocal, localZone);
+      } catch {
+        setResultError('支付截止时间无效，请按本机当地时间重新填写');
+        return;
+      }
+      const resultId = crypto.randomUUID();
+      const recordedAt = new Date().toISOString();
+      const saved = await onMutate((current) => ({
+        ...current,
+        attempts: [
+          ...current.attempts,
+          {
+            id: resultId,
+            at: recordedAt,
+            opportunityId: resultOpportunity || null,
+            status: resultStatus,
+            paymentDeadline,
+            tier: resultTier.trim(),
+            total: resultTotal === '' ? null : Number(resultTotal),
+            evidence: evidence.trim(),
+            note: resultNote.trim(),
+          },
+        ],
+      }));
+      if (!saved) return;
+      setResultTier('');
+      setResultTotal('');
+      setResultDeadlineLocal('');
+      setEvidence('');
+      setResultNote('');
+    } finally {
+      resultSubmitting.current = false;
+      setResultBusy(false);
+    }
   }
   return (
     <>
@@ -1053,19 +1226,26 @@ function EventDetail({
                               </button>
                             </>
                           )}
+                          <button
+                            className="text-button"
+                            onClick={() => void onReference(event.id, item.id)}
+                          >
+                            核对公告
+                          </button>
                           <button className="text-button" onClick={() => onEditSale(item)}>
                             编辑
                           </button>
                           <button
                             className="text-button danger"
                             onClick={() => {
-                              if (window.confirm('删除这条销售机会？'))
-                                void onMutate({
-                                  ...event,
-                                  opportunities: event.opportunities.filter(
-                                    (o) => o.id !== item.id,
-                                  ),
-                                });
+                              if (
+                                window.confirm(
+                                  '删除这条销售机会？相关结果会保留，但不再关联此机会。',
+                                )
+                              )
+                                void onMutate((current) =>
+                                  removeSaleKeepingResults(current, item.id),
+                                );
                             }}
                           >
                             删除
@@ -1102,10 +1282,10 @@ function EventDetail({
                       type="checkbox"
                       checked={event.checklist[key]}
                       onChange={(e) =>
-                        void onMutate({
-                          ...event,
-                          checklist: { ...event.checklist, [key]: e.target.checked },
-                        })
+                        void onMutate((current) => ({
+                          ...current,
+                          checklist: { ...current.checklist, [key]: e.target.checked },
+                        }))
                       }
                     />
                     <span className="custom-check">
@@ -1189,7 +1369,9 @@ function EventDetail({
                   <span className="eyebrow">SOURCE OF TRUTH</span>
                   <h2>本场规则</h2>
                 </div>
-                <Link2 size={18} className="muted" />
+                <button className="text-button" onClick={() => void onReference(event.id)}>
+                  <Link2 size={16} /> 核对来源
+                </button>
               </div>
               <p className="rule-note">
                 {event.ruleNote || '尚未摘录本场限制；请阅读官方项目页面并补充。'}
@@ -1201,9 +1383,9 @@ function EventDetail({
               <div className="capability-note">
                 <ShieldCheck size={18} />
                 <p>
-                  可用：官方入口、日历、清单、人工选择和结果记录。
+                  {platformGuidance?.text || '请以本场官方公告核对资格、入口与购票流程。'}
                   <br />
-                  未接入：实时库存、自动排队、自动提交。
+                  未接入实时库存、自动排队或自动提交。
                 </p>
               </div>
             </section>
@@ -1219,6 +1401,22 @@ function EventDetail({
               <p className="panel-intro">
                 点击、占票、待支付和出票不是同一个结果，请按官方凭据手动记录。
               </p>
+              {pendingDeadline && (
+                <div className="payment-deadline" role="status">
+                  <strong>
+                    {Date.parse(pendingDeadline) > clock
+                      ? '待支付订单即将截止'
+                      : '记录的支付截止时间已过'}
+                  </strong>
+                  <span>
+                    本机时间 {timeText(pendingDeadline, localZone)} ·{' '}
+                    {Date.parse(pendingDeadline) > clock
+                      ? `约剩 ${Math.ceil((Date.parse(pendingDeadline) - clock) / 60_000)} 分钟`
+                      : '请在官方订单页核实当前状态'}
+                  </span>
+                  <small>以官方页面实时倒计时为准；本工具不会自动付款。</small>
+                </div>
+              )}
               <form onSubmit={addResult} className="result-form">
                 <label>
                   对应销售机会
@@ -1268,7 +1466,7 @@ function EventDetail({
                     />
                   </label>
                 </div>
-                <label>
+                <label className="result-evidence">
                   确认依据
                   <input
                     required={activeOrder.has(resultStatus)}
@@ -1277,7 +1475,18 @@ function EventDetail({
                     placeholder="例如：官方订单号后四位（勿填完整证件）"
                   />
                 </label>
-                <label>
+                {resultStatus === 'pending_payment' && (
+                  <label className="result-deadline">
+                    支付截止（本机当地时间，选填）
+                    <input
+                      type="datetime-local"
+                      value={resultDeadlineLocal}
+                      onChange={(e) => setResultDeadlineLocal(e.target.value)}
+                    />
+                    <small>只填写官方订单页确认的截止时间；桌面版运行期间会在临近时提醒。</small>
+                  </label>
+                )}
+                <label className="result-note">
                   备注
                   <textarea
                     rows={2}
@@ -1286,9 +1495,14 @@ function EventDetail({
                     placeholder="失败原因、截止时间或需要人工处理的事项"
                   />
                 </label>
-                <button className="button secondary" type="submit">
-                  <Plus size={16} /> 记录当前结果
+                <button className="button secondary" type="submit" disabled={resultBusy}>
+                  <Plus size={16} /> {resultBusy ? '正在保存…' : '记录当前结果'}
                 </button>
+                {resultError && (
+                  <p className="form-error" role="alert">
+                    {resultError}
+                  </p>
+                )}
               </form>
               {event.attempts.length ? (
                 <div className="journal">
@@ -1298,7 +1512,9 @@ function EventDetail({
                       <div>
                         <div>
                           <StatusPill status={attempt.status} />
-                          <small>{timeText(attempt.at)}</small>
+                          <small>
+                            {timeText(attempt.at, event.timeZone)} {event.timeZone}
+                          </small>
                         </div>
                         <p>
                           {[
@@ -1342,7 +1558,7 @@ function EventDetail({
                   try {
                     const at = parseLocalInstant(followLocal, event.timeZone);
                     if (at > event.sessionAt) throw new Error('跟进截止不能晚于演出开始');
-                    void onMutate({ ...event, followUntil: at });
+                    void onMutate((current) => ({ ...current, followUntil: at }));
                   } catch {
                     window.alert('请输入有效的截止时间，且不能晚于演出开始。');
                   }

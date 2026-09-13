@@ -15,7 +15,15 @@ import { promisify } from 'node:util';
 import { TicketStore } from './store';
 import { OfficialBrowserManager } from './official-browser';
 import { resolveBrowserTarget } from '../shared/browser';
-import { formatLocalInstant, officialUrl, remindersDue } from '../shared/rules';
+import {
+  formatLocalInstant,
+  officialUrl,
+  opportunityDeadlineRemindersDue,
+  paymentRemindersDue,
+  pendingPaymentAttempts,
+  referenceUrl,
+  remindersDue,
+} from '../shared/rules';
 import { platformLabels, saleLabels, type EventRecord, type PlatformId } from '../shared/model';
 
 const run = promisify(execFile);
@@ -63,6 +71,19 @@ function notifyDue(): void {
   if (!Notification.isSupported()) return;
   const now = Date.now();
   for (const event of store.list()) {
+    for (const attempt of pendingPaymentAttempts(event.attempts)) {
+      const deadline = attempt.paymentDeadline;
+      if (!deadline) continue;
+      for (const lead of paymentRemindersDue(deadline, now)) {
+        showReminder(
+          `${attempt.id}:payment`,
+          deadline,
+          lead,
+          `${event.title} · 待支付订单`,
+          `你记录的支付截止时间即将到达。请立即在官方订单页核对并完成付款；以平台当前倒计时为准。`,
+        );
+      }
+    }
     if (Date.parse(event.followUntil) < now) continue;
     for (const opportunity of event.opportunities) {
       if (opportunity.status === 'missed' || opportunity.status === 'completed') continue;
@@ -79,8 +100,10 @@ function notifyDue(): void {
         opportunity.endsAt &&
         (opportunity.type === 'invitation' || opportunity.type === 'waitlist')
       ) {
-        for (const lead of remindersDue(opportunity.endsAt, now, new Set()).filter(
-          (key) => key === '30m' || key === '5m',
+        for (const lead of opportunityDeadlineRemindersDue(
+          opportunity.startsAt,
+          opportunity.endsAt,
+          now,
         )) {
           showReminder(
             `${opportunity.id}:deadline`,
@@ -179,6 +202,16 @@ if (singleInstance)
         forMain(event.sender);
         if (!officialUrl(platform, url)) throw new Error('该入口未通过官方域名检查，请先核对来源');
         await shell.openExternal(url);
+      });
+      ipcMain.handle('reference:open', async (event, eventId: string, opportunityId?: string) => {
+        forMain(event.sender);
+        const task = store.list().find((item) => item.id === eventId);
+        if (!task) throw new Error('任务已不存在');
+        const source = opportunityId
+          ? task.opportunities.find((item) => item.id === opportunityId)?.sourceUrl
+          : task.sourceUrl;
+        if (!source || !referenceUrl(source)) throw new Error('规则来源地址无效');
+        await shell.openExternal(source);
       });
       ipcMain.handle('official:open-inside', (event, eventId: string, opportunityId?: string) => {
         forMain(event.sender);

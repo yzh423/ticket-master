@@ -51,7 +51,7 @@ export function officialUrl(platform: PlatformId, input: string): boolean {
   }
 }
 
-function sourceUrl(input: string): boolean {
+export function referenceUrl(input: string): boolean {
   try {
     const url = new URL(input);
     return url.protocol === 'https:' && !url.username && !url.password;
@@ -78,16 +78,31 @@ export type Decision =
   | { kind: 'uncertain' | 'sold_out' | 'over_budget' | 'check_total'; note: string };
 
 export function hasOpenOrder(attempts: AttemptResult[]): boolean {
-  const latestByOpportunity = new Map<string, AttemptResult>();
-  for (const attempt of attempts) {
-    const key = attempt.opportunityId ?? '__unassigned__';
-    const previous = latestByOpportunity.get(key);
-    if (!previous || Date.parse(attempt.at) >= Date.parse(previous.at))
-      latestByOpportunity.set(key, attempt);
-  }
-  return [...latestByOpportunity.values()].some((attempt) =>
+  return latestByOpportunity(attempts).some((attempt) =>
     ['pending_payment', 'paid_pending_issue', 'issued'].includes(attempt.status),
   );
+}
+
+function latestByOpportunity(attempts: AttemptResult[]): AttemptResult[] {
+  const latest = new Map<string, AttemptResult>();
+  for (const attempt of attempts) {
+    const key = attempt.opportunityId ?? '__unassigned__';
+    const previous = latest.get(key);
+    if (!previous || Date.parse(attempt.at) >= Date.parse(previous.at)) latest.set(key, attempt);
+  }
+  return [...latest.values()];
+}
+
+export function pendingPaymentAttempts(attempts: AttemptResult[]): AttemptResult[] {
+  return latestByOpportunity(attempts).filter((attempt) => attempt.status === 'pending_payment');
+}
+
+export function paymentRemindersDue(deadline: string, now: number): string[] {
+  const remaining = Date.parse(deadline) - now;
+  if (!Number.isFinite(remaining) || remaining <= 0) return [];
+  if (remaining <= 60_000) return ['1m'];
+  if (remaining <= 300_000) return ['5m'];
+  return [];
 }
 
 export function preparationGaps(
@@ -167,6 +182,15 @@ export function remindersDue(startsAt: string, now: number, delivered: Set<strin
   return lead && !delivered.has(lead) ? [lead] : [];
 }
 
+export function opportunityDeadlineRemindersDue(
+  startsAt: string,
+  endsAt: string,
+  now: number,
+): string[] {
+  if (now < Date.parse(startsAt)) return [];
+  return remindersDue(endsAt, now, new Set()).filter((lead) => lead === '30m' || lead === '5m');
+}
+
 export function validateEvent(value: EventRecord): EventRecord {
   if (
     !value ||
@@ -174,7 +198,7 @@ export function validateEvent(value: EventRecord): EventRecord {
     !value.title?.trim() ||
     !value.sessionLocal ||
     !value.timeZone ||
-    !sourceUrl(value.sourceUrl) ||
+    !referenceUrl(value.sourceUrl) ||
     !value.verifiedAt
   )
     throw new Error('请填写活动、固定场次、时区和规则来源');
@@ -222,7 +246,7 @@ export function validateEvent(value: EventRecord): EventRecord {
   for (const item of value.opportunities) {
     if (
       !item.id ||
-      !sourceUrl(item.sourceUrl) ||
+      !referenceUrl(item.sourceUrl) ||
       !item.verifiedAt ||
       item.startsAt !== parseLocalInstant(item.localTime, item.timeZone) ||
       (item.url && !officialUrl(value.platform, item.url))
@@ -248,6 +272,12 @@ export function validateEvent(value: EventRecord): EventRecord {
       throw new Error('待支付或已完成结果需要官方确认依据');
     if (attempt.total !== null && (!Number.isFinite(attempt.total) || attempt.total < 0))
       throw new Error('记录的实付总额无效');
+    if (
+      attempt.paymentDeadline &&
+      (!Number.isFinite(Date.parse(attempt.paymentDeadline)) ||
+        Date.parse(attempt.paymentDeadline) <= Date.parse(attempt.at))
+    )
+      throw new Error('支付截止时间必须晚于记录时间');
   }
   return value;
 }

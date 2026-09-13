@@ -62,14 +62,51 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
 }
-.results-layout .result-form > label:nth-child(3),
-.results-layout .result-form > label:nth-child(4),
-.results-layout .result-form > .form-grid {
+.results-layout .result-form > .form-grid,
+.results-layout .result-form > .result-deadline {
   grid-column: auto;
 }
-.results-layout .result-form > label:nth-child(5),
-.results-layout .result-form > .button {
+.results-layout .result-form > .result-evidence,
+.results-layout .result-form > .result-note,
+.results-layout .result-form > .button,
+.results-layout .result-form > .form-error {
   grid-column: 1/-1;
+}
+.payment-deadline {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  margin-top: 14px;
+  border: 1px solid #74593a;
+  border-radius: 9px;
+  background: #31281f;
+  color: var(--amber);
+}
+.payment-deadline strong {
+  font-size: 13px;
+}
+.payment-deadline span,
+.payment-deadline small {
+  font-size: 11px;
+  line-height: 1.6;
+}
+:root[data-theme='light'] .payment-deadline {
+  background: #fff5e8;
+  border-color: #e7c28f;
+}
+.home-payment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 20px;
+}
+.home-payment > div {
+  display: grid;
+  gap: 4px;
+}
+.home-payment .button {
+  flex: none;
 }
 .results-layout .journal {
   display: grid;
@@ -85,6 +122,10 @@
   }
 }
 @media (max-width: 720px) {
+  .home-payment {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .task-journey {
     gap: 7px;
   }

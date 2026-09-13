@@ -6,8 +6,12 @@ import {
   remindersDue,
   validateEvent,
   officialUrl,
+  referenceUrl,
   hasOpenOrder,
   preparationGaps,
+  paymentRemindersDue,
+  pendingPaymentAttempts,
+  opportunityDeadlineRemindersDue,
 } from './rules';
 
 const tiers = [
@@ -93,6 +97,49 @@ describe('时间与提醒', () => {
     expect(remindersDue(at, Date.parse(at) + 61_000, new Set())).toEqual(['now']);
     expect(remindersDue(at, Date.parse(at) + 11 * 60_000, new Set())).toEqual([]);
   });
+  it('只在支付截止前提醒，且只跟进每个机会的最新待支付记录', () => {
+    const deadline = '2026-09-14T12:00:00.000Z';
+    expect(paymentRemindersDue(deadline, Date.parse(deadline) - 4 * 60_000)).toEqual(['5m']);
+    expect(paymentRemindersDue(deadline, Date.parse(deadline) - 30_000)).toEqual(['1m']);
+    expect(paymentRemindersDue(deadline, Date.parse(deadline) + 1_000)).toEqual([]);
+    const attempts = [
+      {
+        id: 'a',
+        opportunityId: 'sale-a',
+        at: '2026-09-14T10:00:00Z',
+        status: 'pending_payment',
+        paymentDeadline: deadline,
+      },
+      {
+        id: 'b',
+        opportunityId: 'sale-a',
+        at: '2026-09-14T10:01:00Z',
+        status: 'issued',
+        paymentDeadline: null,
+      },
+      {
+        id: 'c',
+        opportunityId: 'sale-b',
+        at: '2026-09-14T10:02:00Z',
+        status: 'pending_payment',
+        paymentDeadline: deadline,
+      },
+    ];
+    expect(pendingPaymentAttempts(attempts as never).map((item) => item.id)).toEqual(['c']);
+  });
+  it('短窗口候补邀请不在机会开始前发出截止提醒', () => {
+    const startsAt = '2026-09-14T12:00:00.000Z';
+    const endsAt = '2026-09-14T12:20:00.000Z';
+    expect(
+      opportunityDeadlineRemindersDue(startsAt, endsAt, Date.parse(startsAt) - 60_000),
+    ).toEqual([]);
+    expect(opportunityDeadlineRemindersDue(startsAt, endsAt, Date.parse(startsAt))).toEqual([
+      '30m',
+    ]);
+    expect(opportunityDeadlineRemindersDue(startsAt, endsAt, Date.parse(endsAt) - 120_000)).toEqual(
+      ['5m'],
+    );
+  });
 });
 
 describe('边界验证', () => {
@@ -102,6 +149,11 @@ describe('边界验证', () => {
     expect(officialUrl('damai', 'javascript:alert(1)')).toBe(false);
     expect(officialUrl('seatgeek', 'https://seatgeek.com/concert-tickets')).toBe(true);
     expect(officialUrl('seatgeek', 'https://seatgeek.com.evil.example')).toBe(false);
+  });
+  it('项目公告可以来自主办方域名，但必须是无凭据的 HTTPS 地址', () => {
+    expect(referenceUrl('https://organizer.example.com/announcement')).toBe(true);
+    expect(referenceUrl('https://user:pass@organizer.example.com/announcement')).toBe(false);
+    expect(referenceUrl('javascript:alert(1)')).toBe(false);
   });
   it('缺乏固定场次、人数、预算或来源的任务无效', () => {
     expect(() => validateEvent({ title: '音乐节', quantity: 0 } as never)).toThrow();

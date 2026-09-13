@@ -54,6 +54,7 @@ export type AttemptResult = {
   at: string;
   opportunityId: string | null;
   status: AttemptStatus;
+  paymentDeadline?: string | null;
   tier: string;
   total: number | null;
   evidence: string;

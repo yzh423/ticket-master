@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import {
   saleLabels,
@@ -34,8 +34,13 @@ export function OpportunityForm({
   );
   const [note, setNote] = useState(initial?.note ?? '');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
     setError('');
     try {
       await onSave({
@@ -54,6 +59,9 @@ export function OpportunityForm({
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
+    } finally {
+      submitting.current = false;
+      setBusy(false);
     }
   }
   return (
@@ -163,8 +171,8 @@ export function OpportunityForm({
             <button type="button" className="button ghost" onClick={onClose}>
               取消
             </button>
-            <button type="submit" className="button primary">
-              保存机会
+            <button type="submit" className="button primary" disabled={busy}>
+              {busy ? '保存中…' : '保存机会'}
             </button>
           </div>
         </form>

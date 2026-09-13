@@ -97,6 +97,29 @@ it('已付款或已出票记录必须有人工确认依据', async () => {
   store.close();
 });
 
+it('拒绝早于记录时间的支付截止，避免发出误导提醒', async () => {
+  const store = await TicketStore.open(file);
+  expect(() =>
+    store.save({
+      ...event,
+      attempts: [
+        {
+          id: randomUUID(),
+          at: '2026-09-14T10:00:00.000Z',
+          opportunityId: null,
+          status: 'pending_payment',
+          paymentDeadline: '2026-09-14T09:59:00.000Z',
+          tier: '看台',
+          total: null,
+          evidence: '官方订单页',
+          note: '',
+        },
+      ],
+    }),
+  ).toThrow('支付截止时间必须晚于记录时间');
+  store.close();
+});
+
 it('拒绝无效公告来源和重复的销售机会 ID，避免提醒串到另一条机会', async () => {
   const store = await TicketStore.open(file);
   expect(() => store.save({ ...event, sourceUrl: '不是网址' })).toThrow();

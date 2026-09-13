@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import {
   defaultChecklist,
@@ -36,9 +36,12 @@ export function EventForm({
   const [ruleNote, setRuleNote] = useState(initial?.ruleNote ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError('');
     setBusy(true);
     try {
@@ -74,6 +77,7 @@ export function EventForm({
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败，请检查输入');
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }

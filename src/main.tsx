@@ -7,7 +7,12 @@ import './journey.css';
 import './adaptive.css';
 import { installWebBridge } from './web-bridge';
 
-const savedTheme = localStorage.getItem('ticket-theme');
+let savedTheme: string | null = null;
+try {
+  savedTheme = localStorage.getItem('ticket-theme');
+} catch {
+  // Storage-denied browser sessions still need a readable startup screen.
+}
 document.documentElement.dataset.theme = savedTheme === 'dark' ? 'dark' : 'light';
 installWebBridge();
 

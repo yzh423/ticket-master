@@ -115,8 +115,12 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: /测试巡演 · 上海站/ }).click();
     await page.getByRole('button', { name: '添加机会' }).click();
     await page.getByLabel('开始（所在地时间）').fill('2026-09-20T12:00');
-    await page.getByRole('button', { name: '保存机会' }).click();
+    await page.getByRole('button', { name: '保存机会' }).evaluate((button) => {
+      button.click();
+      button.click();
+    });
     await page.locator('.opportunity-time').getByText('2026/09/20 12:00').waitFor();
+    assert.equal(await page.locator('.opportunity').count(), 1, '双击保存不应生成重复机会');
     await page.getByRole('button', { name: '编辑', exact: true }).click();
     await page.getByLabel('资格条件').fill('已核对本场资格');
     await page.getByRole('button', { name: '保存机会' }).click();
@@ -138,14 +142,41 @@ async function contrastRatio(locator) {
     await page.getByRole('tab', { name: /票档判断/ }).click();
     await page.getByLabel('B 看台页面状态').selectOption('available');
     await page.getByText('建议先核对 B 看台').waitFor();
+    await page.getByRole('button', { name: '编辑规则' }).click();
+    await page.getByLabel('票档 1 名称').fill('B 新看台');
+    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('tab', { name: /票档判断/ }).click();
+    assert.equal(await page.getByLabel('B 新看台页面状态').inputValue(), 'unknown');
+    await page.getByLabel('B 新看台页面状态').selectOption('available');
     await page.getByRole('tab', { name: /订单结果/ }).click();
     await page.getByLabel('当前阶段').selectOption('pending_payment');
     await page.getByLabel('对应销售机会').selectOption({ label: '公开销售 · 2026/09/20 12:00' });
+    const paymentDeadline = await page.evaluate(() => {
+      const date = new Date(Date.now() + 10 * 60_000);
+      const pad = (number) => String(number).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    });
+    await page.getByLabel('支付截止（本机当地时间，选填）').fill(paymentDeadline);
     await page.getByLabel('确认依据').fill('官方订单号后四位 1234');
-    await page.getByRole('button', { name: '记录当前结果' }).click();
+    await page.getByRole('button', { name: '记录当前结果' }).evaluate((button) => {
+      button.click();
+      button.click();
+    });
+    await page.getByText('待支付订单即将截止').waitFor();
+    assert.equal(await page.locator('.journal-row').count(), 1, '双击结果保存不应生成重复订单');
+    await page.screenshot({ path: join(artifacts, 'payment.png'), fullPage: true });
     await page.getByRole('tab', { name: /票档判断/ }).click();
     await page.getByText('已有待完成或已确认订单').waitFor();
     await page.screenshot({ path: join(artifacts, 'detail.png'), fullPage: true });
+    await page.getByRole('tab', { name: /官方机会/ }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除', exact: true }).click();
+    await page.getByText('还没有有来源的销售时间').waitFor();
+    await page.getByRole('tab', { name: /订单结果/ }).click();
+    await page.getByText('待支付订单即将截止').waitFor();
+    await page.getByRole('button', { name: '返回任务列表' }).click();
+    await page.getByRole('region', { name: '待支付订单' }).getByText('测试巡演 · 上海站').waitFor();
+    await page.getByRole('button', { name: '查看订单结果' }).click();
     await page.getByRole('button', { name: '编辑规则' }).click();
     await page.getByLabel('场馆 / 城市').fill('上海新体育馆');
     await page.getByRole('button', { name: '保存任务' }).click();
