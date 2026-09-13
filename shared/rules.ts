@@ -1,5 +1,13 @@
 import { Temporal } from '@js-temporal/polyfill';
-import type { Availability, EventRecord, PlatformId, Tier } from './model';
+import type {
+  AttemptResult,
+  Availability,
+  ChecklistKey,
+  EventRecord,
+  PlatformId,
+  SaleType,
+  Tier,
+} from './model';
 
 const domains: Partial<Record<PlatformId, string[]>> = {
   damai: ['damai.cn'],
@@ -43,6 +51,15 @@ export function officialUrl(platform: PlatformId, input: string): boolean {
   }
 }
 
+function sourceUrl(input: string): boolean {
+  try {
+    const url = new URL(input);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 export function parseLocalInstant(localTime: string, timeZone: string): string {
   const plain = Temporal.PlainDateTime.from(localTime);
   const instant = plain.toZonedDateTime(timeZone, { disambiguation: 'reject' }).toInstant();
@@ -59,6 +76,37 @@ export function formatLocalInstant(instant: string, timeZone: string): string {
 export type Decision =
   | { kind: 'recommend'; index: number; note: string }
   | { kind: 'uncertain' | 'sold_out' | 'over_budget' | 'check_total'; note: string };
+
+export function hasOpenOrder(attempts: AttemptResult[]): boolean {
+  const latestByOpportunity = new Map<string, AttemptResult>();
+  for (const attempt of attempts) {
+    const key = attempt.opportunityId ?? '__unassigned__';
+    const previous = latestByOpportunity.get(key);
+    if (!previous || Date.parse(attempt.at) >= Date.parse(previous.at))
+      latestByOpportunity.set(key, attempt);
+  }
+  return [...latestByOpportunity.values()].some((attempt) =>
+    ['pending_payment', 'paid_pending_issue', 'issued'].includes(attempt.status),
+  );
+}
+
+export function preparationGaps(
+  checklist: Record<ChecklistKey, boolean>,
+  saleType: SaleType,
+): ChecklistKey[] {
+  const required: ChecklistKey[] = [
+    'account',
+    'identity',
+    'attendees',
+    'payment',
+    'channel',
+    'network',
+    'notification',
+  ];
+  if (saleType === 'presale' || saleType === 'waitlist' || saleType === 'invitation')
+    required.splice(3, 0, 'qualification');
+  return required.filter((key) => !checklist[key]);
+}
 export function chooseTier(
   tiers: Tier[],
   availability: Availability[],
@@ -105,19 +153,18 @@ export function chooseTier(
 export function remindersDue(startsAt: string, now: number, delivered: Set<string>): string[] {
   const start = Date.parse(startsAt);
   if (!Number.isFinite(start)) return [];
-  return (
-    [
-      ['24h', 86_400_000],
-      ['30m', 1_800_000],
-      ['5m', 300_000],
-      ['now', 0],
-    ] as const
-  )
-    .filter(
-      ([key, offset]) =>
-        !delivered.has(key) && now >= start - offset && now < start - offset + 60_000,
-    )
-    .map(([key]) => key);
+  const remaining = start - now;
+  const lead =
+    remaining <= 0 && remaining > -600_000
+      ? 'now'
+      : remaining > 0 && remaining <= 300_000
+        ? '5m'
+        : remaining > 300_000 && remaining <= 1_800_000
+          ? '30m'
+          : remaining > 1_800_000 && remaining <= 86_400_000
+            ? '24h'
+            : null;
+  return lead && !delivered.has(lead) ? [lead] : [];
 }
 
 export function validateEvent(value: EventRecord): EventRecord {
@@ -127,7 +174,7 @@ export function validateEvent(value: EventRecord): EventRecord {
     !value.title?.trim() ||
     !value.sessionLocal ||
     !value.timeZone ||
-    !value.sourceUrl?.trim() ||
+    !sourceUrl(value.sourceUrl) ||
     !value.verifiedAt
   )
     throw new Error('请填写活动、固定场次、时区和规则来源');
@@ -167,10 +214,15 @@ export function validateEvent(value: EventRecord): EventRecord {
     !Array.isArray(value.attempts)
   )
     throw new Error('任务记录无效');
+  if (
+    new Set(value.opportunities.map((item) => item.id)).size !== value.opportunities.length ||
+    new Set(value.attempts.map((item) => item.id)).size !== value.attempts.length
+  )
+    throw new Error('销售机会或结果记录 ID 重复');
   for (const item of value.opportunities) {
     if (
       !item.id ||
-      !item.sourceUrl?.trim() ||
+      !sourceUrl(item.sourceUrl) ||
       !item.verifiedAt ||
       item.startsAt !== parseLocalInstant(item.localTime, item.timeZone) ||
       (item.url && !officialUrl(value.platform, item.url))

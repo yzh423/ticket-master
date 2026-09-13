@@ -15,12 +15,20 @@ import {
   Settings2,
   ShieldCheck,
   Smartphone,
+  Moon,
+  Sun,
   Ticket,
   Trash2,
 } from 'lucide-react';
 import { EventForm } from './components/EventForm';
 import { OpportunityForm } from './components/OpportunityForm';
-import { chooseTier, formatLocalInstant, parseLocalInstant } from '../shared/rules';
+import {
+  chooseTier,
+  formatLocalInstant,
+  hasOpenOrder,
+  parseLocalInstant,
+  preparationGaps,
+} from '../shared/rules';
 import {
   checklistLabels,
   platformLabels,
@@ -34,6 +42,7 @@ import {
 } from '../shared/model';
 
 type Page = 'dashboard' | 'calendar' | 'guide' | 'device';
+type DetailTab = 'sales' | 'ready' | 'tickets' | 'results';
 const guide: { id: keyof typeof platformLabels; text: string; source: string }[] = [
   {
     id: 'damai',
@@ -175,11 +184,16 @@ function StatusPill({ status }: { status: AttemptStatus }) {
 export default function App() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailStartTab, setDetailStartTab] = useState<DetailTab>('sales');
   const [page, setPage] = useState<Page>('dashboard');
   const [editing, setEditing] = useState<EventRecord | true | null>(null);
   const [saleEditor, setSaleEditor] = useState<SaleOpportunity | true | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [recovered, setRecovered] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+  );
   const [clock, setClock] = useState(Date.now());
   const [usb, setUsb] = useState('尚未检测');
   const [browserPlatform, setBrowserPlatform] = useState<PlatformId>('damai');
@@ -204,6 +218,16 @@ export default function App() {
         .sort((a, b) => a.sale.startsAt.localeCompare(b.sale.startsAt)),
     [events, clock],
   );
+  const focusGaps = upcoming[0]
+    ? preparationGaps(upcoming[0].event.checklist, upcoming[0].sale.type)
+    : [];
+  const focusOrder = upcoming[0] ? hasOpenOrder(upcoming[0].event.attempts) : false;
+
+  function openEvent(id: string, tab: DetailTab = 'sales') {
+    setDetailStartTab(tab);
+    setSelectedId(id);
+    setPage('dashboard');
+  }
 
   async function reload() {
     try {
@@ -218,6 +242,11 @@ export default function App() {
   }
   useEffect(() => {
     void reload();
+    void window.ticket.setTheme(theme);
+    void window.ticket
+      .recoveryStatus()
+      .then(setRecovered)
+      .catch(() => {});
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
     const unsubscribe = window.ticket.onChanged(() => {
       void reload();
@@ -227,11 +256,17 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('ticket-theme', next);
+    void window.ticket.setTheme(next);
+  }
   async function save(event: EventRecord) {
     const next = await window.ticket.save(event);
     await reload();
-    setSelectedId(next.id);
-    setPage('dashboard');
+    openEvent(next.id);
     setEditing(null);
     setSaleEditor(null);
   }
@@ -347,11 +382,29 @@ export default function App() {
                     ? '设备与会话'
                     : '我的任务'}
           </span>
-          <span className="local-badge">
-            <ShieldCheck size={14} /> 本地保存
-          </span>
+          <div className="topbar-actions">
+            <button
+              className="appearance-toggle"
+              aria-label={theme === 'light' ? '切换深色模式' : '切换浅色模式'}
+              title={theme === 'light' ? '切换深色模式' : '切换浅色模式'}
+              onClick={toggleTheme}
+            >
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
+            <span className="local-badge">
+              <ShieldCheck size={14} /> 本地保存
+            </span>
+          </div>
         </header>
         <div className="content">
+          {recovered && (
+            <div className="recovery-banner" role="alert">
+              <ShieldCheck size={19} />
+              <span>
+                主数据库未能读取，已从本机备份载入任务。请核对最近的修改；下次保存将修复主文件。
+              </span>
+            </div>
+          )}
           {error && (
             <div className="error-banner" role="alert">
               {error}
@@ -366,6 +419,7 @@ export default function App() {
           ) : selected ? (
             <EventDetail
               event={selected}
+              initialTab={detailStartTab}
               onBack={() => setSelectedId(null)}
               onEdit={() => setEditing(selected)}
               onRemove={remove}
@@ -401,14 +455,40 @@ export default function App() {
                       {timeText(upcoming[0].sale.startsAt, upcoming[0].sale.timeZone)}{' '}
                       {upcoming[0].sale.timeZone}
                     </p>
+                    <div className="focus-next-step">
+                      <strong>
+                        {focusOrder
+                          ? '已有订单需要先处理'
+                          : focusGaps.length
+                            ? `${focusGaps.length} 项准备待核对`
+                            : '准备清单已核对'}
+                      </strong>
+                      <span>
+                        {focusOrder
+                          ? '先核对官方订单与付款期限'
+                          : focusGaps.length
+                            ? `下一步：${checklistLabels[focusGaps[0]]}`
+                            : '按本场官方规则参与，保持原会话'}
+                      </span>
+                    </div>
                     <div className="focus-actions">
                       <button
                         className="button primary"
-                        onClick={() => setSelectedId(upcoming[0].event.id)}
+                        onClick={() =>
+                          openEvent(
+                            upcoming[0].event.id,
+                            focusOrder ? 'results' : focusGaps.length ? 'ready' : 'sales',
+                          )
+                        }
                       >
-                        查看任务准备 <ArrowRight size={16} />
+                        {focusOrder
+                          ? '处理已有订单'
+                          : focusGaps.length
+                            ? '先核对准备'
+                            : '查看官方机会'}{' '}
+                        <ArrowRight size={16} />
                       </button>
-                      {(upcoming[0].sale.url || upcoming[0].event.eventUrl) && (
+                      {!focusOrder && (upcoming[0].sale.url || upcoming[0].event.eventUrl) && (
                         <button
                           className="button ghost"
                           onClick={() => void openInside(upcoming[0].event.id, upcoming[0].sale.id)}
@@ -481,7 +561,7 @@ export default function App() {
                       <button
                         className="event-row"
                         key={event.id}
-                        onClick={() => setSelectedId(event.id)}
+                        onClick={() => openEvent(event.id)}
                       >
                         <div className="event-icon">
                           <Ticket size={21} />
@@ -541,8 +621,7 @@ export default function App() {
                       key={sale.id}
                       className="timeline-row"
                       onClick={() => {
-                        setSelectedId(event.id);
-                        setPage('dashboard');
+                        openEvent(event.id);
                       }}
                     >
                       <div className="timeline-date">
@@ -723,6 +802,7 @@ export default function App() {
 
 function EventDetail({
   event,
+  initialTab,
   onBack,
   onEdit,
   onRemove,
@@ -733,6 +813,7 @@ function EventDetail({
   onOpenInside,
 }: {
   event: EventRecord;
+  initialTab: DetailTab;
   onBack: () => void;
   onEdit: () => void;
   onRemove: () => void;
@@ -754,9 +835,9 @@ function EventDetail({
   const [followLocal, setFollowLocal] = useState(
     formatLocalInstant(event.followUntil, event.timeZone),
   );
-  const [detailTab, setDetailTab] = useState<'sales' | 'ready' | 'tickets' | 'results'>('sales');
+  const [detailTab, setDetailTab] = useState<DetailTab>(initialTab);
   const latest = event.attempts.at(-1);
-  const orderExists = Boolean(latest && activeOrder.has(latest.status));
+  const orderExists = hasOpenOrder(event.attempts);
   const decision = chooseTier(
     event.tiers,
     event.tiers.map((_, i) => availability[i] ?? 'unknown'),

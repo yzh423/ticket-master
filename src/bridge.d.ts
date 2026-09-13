@@ -4,6 +4,8 @@ declare global {
   interface Window {
     ticket: {
       list(): Promise<EventRecord[]>;
+      recoveryStatus(): Promise<boolean>;
+      setTheme(theme: 'light' | 'dark'): Promise<void>;
       save(event: EventRecord): Promise<EventRecord>;
       remove(id: string): Promise<void>;
       openOfficial(platform: PlatformId, url: string): Promise<void>;

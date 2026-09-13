@@ -321,3 +321,124 @@ button:focus-visible {
     animation: none;
   }
 }
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #192433;
+    background: #f5f7fa;
+  }
+  .browser-shell {
+    background: #f5f7fa;
+  }
+  .browser-topbar {
+    background: #f7f9fce8;
+    border-color: #dbe4ee;
+    backdrop-filter: blur(18px);
+  }
+  .browser-logo {
+    background: #e4f1ff;
+    color: #1668b7;
+    border-color: #bfdbf7;
+  }
+  .browser-identity strong {
+    color: #1b2d40;
+  }
+  .browser-identity small {
+    color: #61758a;
+  }
+  .browser-location {
+    background: #fff;
+    border-color: #cbd9e7;
+    color: #315d80;
+  }
+  .loading-dot {
+    background: #2179cd;
+    box-shadow: 0 0 10px #2179cd77;
+  }
+  .browser-actions button {
+    color: #456075;
+  }
+  .browser-actions button:hover:not(:disabled) {
+    background: #e9f2fb;
+    color: #124e82;
+  }
+  .browser-actions .external-action {
+    background: #e6f2ff;
+    color: #145fa5;
+  }
+  .browser-action-divider {
+    border-color: #d3e0ec;
+  }
+  .browser-sidecar {
+    background: #f7f9fc;
+    border-color: #dbe4ee;
+  }
+  .micro-label {
+    color: #316fa8;
+  }
+  .browser-sidecar h1 {
+    color: #1b2e43;
+  }
+  .browser-context {
+    color: #63778a;
+  }
+  .browser-intent {
+    background: #e8f3ff;
+    border-color: #bddcf8;
+  }
+  .browser-intent > span,
+  .browser-tier-heading {
+    color: #3e6d94;
+  }
+  .browser-intent strong {
+    color: #1d4c75;
+  }
+  .browser-intent strong small,
+  .browser-tier-heading small {
+    color: #617e93;
+  }
+  .browser-tiers > div {
+    background: #fff;
+    border-color: #d9e4ee;
+  }
+  .browser-tiers b {
+    background: #e3f1ff;
+    color: #226ba9;
+  }
+  .browser-tiers span {
+    color: #283f52;
+  }
+  .browser-tiers small {
+    color: #61788a;
+  }
+  .browser-rule {
+    background: #fff5e6;
+    border-color: #e6c58f;
+    color: #8a591d;
+  }
+  .browser-warning {
+    background: #fff0ed;
+    border-color: #d89e94;
+  }
+  .browser-warning strong {
+    color: #9e352b;
+  }
+  .browser-warning small,
+  .browser-warning p {
+    color: #8b514a;
+  }
+  .browser-bottom {
+    color: #647b8f;
+  }
+  .browser-bottom svg {
+    color: #267ac0;
+  }
+  .browser-remote-placeholder {
+    background: #fff;
+    color: #8094a6;
+  }
+  .browser-placeholder-mark {
+    background: #edf3f8;
+    color: #739ab7;
+  }
+}

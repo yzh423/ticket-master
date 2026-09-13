@@ -3,6 +3,8 @@ import type { EventRecord, PlatformId } from '../shared/model';
 
 contextBridge.exposeInMainWorld('ticket', {
   list: (): Promise<EventRecord[]> => ipcRenderer.invoke('events:list'),
+  recoveryStatus: (): Promise<boolean> => ipcRenderer.invoke('events:recovery-status'),
+  setTheme: (theme: 'light' | 'dark'): Promise<void> => ipcRenderer.invoke('ui:set-theme', theme),
   save: (event: EventRecord): Promise<EventRecord> => ipcRenderer.invoke('events:save', event),
   remove: (id: string): Promise<void> => ipcRenderer.invoke('events:remove', id),
   openOfficial: (platform: PlatformId, url: string): Promise<void> =>

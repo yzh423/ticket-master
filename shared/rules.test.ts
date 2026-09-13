@@ -6,6 +6,8 @@ import {
   remindersDue,
   validateEvent,
   officialUrl,
+  hasOpenOrder,
+  preparationGaps,
 } from './rules';
 
 const tiers = [
@@ -15,6 +17,42 @@ const tiers = [
 ];
 
 describe('票档决策', () => {
+  it('公开销售不强制优先购资格，预售则提示补齐资格', () => {
+    const checklist = {
+      account: true,
+      identity: true,
+      attendees: true,
+      qualification: false,
+      payment: true,
+      channel: true,
+      network: true,
+      notification: true,
+    };
+    expect(preparationGaps(checklist, 'public')).toEqual([]);
+    expect(preparationGaps(checklist, 'presale')).toEqual(['qualification']);
+  });
+  it('按每个销售机会的最新结果判断是否已有订单，其他机会失败不取消待支付状态', () => {
+    const pending = {
+      id: 'a',
+      opportunityId: 'sale-a',
+      at: '2026-09-14T10:00:00Z',
+      status: 'pending_payment',
+    };
+    const otherFailure = {
+      id: 'b',
+      opportunityId: 'sale-b',
+      at: '2026-09-14T10:05:00Z',
+      status: 'failed',
+    };
+    const sameFailure = {
+      id: 'c',
+      opportunityId: 'sale-a',
+      at: '2026-09-14T10:10:00Z',
+      status: 'failed',
+    };
+    expect(hasOpenOrder([pending, otherFailure] as never)).toBe(true);
+    expect(hasOpenOrder([pending, otherFailure, sameFailure] as never)).toBe(false);
+  });
   it('A 售罄时从可接受且可预算的票档中选 B，不改变人数', () => {
     expect(chooseTier(tiers, ['sold_out', 'available', 'available'], 2, 1200)).toMatchObject({
       kind: 'recommend',
@@ -46,11 +84,14 @@ describe('时间与提醒', () => {
       '2026-10-01T19:00',
     );
   });
-  it('只在运行时的提醒窗口推送且重复检查不重复', () => {
+  it('休眠错过精确分钟后仍提醒当前最紧迫的机会，但不补发过期提醒', () => {
     const at = '2026-09-14T12:00:00.000Z';
     expect(remindersDue(at, Date.parse(at) - 5 * 60_000 + 20_000, new Set())).toEqual(['5m']);
     expect(remindersDue(at, Date.parse(at) - 5 * 60_000 + 20_000, new Set(['5m']))).toEqual([]);
-    expect(remindersDue(at, Date.parse(at) + 61_000, new Set())).toEqual([]);
+    expect(remindersDue(at, Date.parse(at) - 20 * 60_000, new Set())).toEqual(['30m']);
+    expect(remindersDue(at, Date.parse(at) - 2 * 60_000, new Set())).toEqual(['5m']);
+    expect(remindersDue(at, Date.parse(at) + 61_000, new Set())).toEqual(['now']);
+    expect(remindersDue(at, Date.parse(at) + 11 * 60_000, new Set())).toEqual([]);
   });
 });
 

@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   ipcMain,
   Notification,
+  nativeTheme,
   session,
   shell,
   type WebContents,
@@ -14,7 +15,7 @@ import { promisify } from 'node:util';
 import { TicketStore } from './store';
 import { OfficialBrowserManager } from './official-browser';
 import { resolveBrowserTarget } from '../shared/browser';
-import { officialUrl, remindersDue } from '../shared/rules';
+import { formatLocalInstant, officialUrl, remindersDue } from '../shared/rules';
 import { platformLabels, saleLabels, type EventRecord, type PlatformId } from '../shared/model';
 
 const run = promisify(execFile);
@@ -66,15 +67,13 @@ function notifyDue(): void {
     for (const opportunity of event.opportunities) {
       if (opportunity.status === 'missed' || opportunity.status === 'completed') continue;
       for (const lead of remindersDue(opportunity.startsAt, now, new Set())) {
-        if (!store.markReminder(opportunity.id, opportunity.startsAt, lead)) continue;
-        const when =
-          lead === 'now'
-            ? '现在开始'
-            : `将在 ${lead === '24h' ? '24 小时' : lead === '30m' ? '30 分钟' : '5 分钟'}后开始`;
-        new Notification({
-          title: `${event.title} · ${saleLabels[opportunity.type]}`,
-          body: `${when}。按当前项目规则使用官方入口。`,
-        }).show();
+        showReminder(
+          opportunity.id,
+          opportunity.startsAt,
+          lead,
+          `${event.title} · ${saleLabels[opportunity.type]}`,
+          `官方公告开始时间：${formatLocalInstant(opportunity.startsAt, opportunity.timeZone)} ${opportunity.timeZone}。请核对当前页面并按原平台规则参与。`,
+        );
       }
       if (
         opportunity.endsAt &&
@@ -83,14 +82,26 @@ function notifyDue(): void {
         for (const lead of remindersDue(opportunity.endsAt, now, new Set()).filter(
           (key) => key === '30m' || key === '5m',
         )) {
-          if (!store.markReminder(`${opportunity.id}:deadline`, opportunity.endsAt, lead)) continue;
-          new Notification({
-            title: `${event.title} · 响应截止提醒`,
-            body: `官方机会将在 ${lead === '30m' ? '30 分钟' : '5 分钟'}后截止。请在原平台核对并处理。`,
-          }).show();
+          showReminder(
+            `${opportunity.id}:deadline`,
+            opportunity.endsAt,
+            lead,
+            `${event.title} · 响应截止提醒`,
+            `官方机会截止：${formatLocalInstant(opportunity.endsAt, opportunity.timeZone)} ${opportunity.timeZone}。请在原平台核对并处理。`,
+          );
         }
       }
     }
+  }
+}
+
+function showReminder(id: string, at: string, lead: string, title: string, body: string): void {
+  if (store.hasReminder(id, at, lead)) return;
+  try {
+    new Notification({ title, body }).show();
+    store.markReminder(id, at, lead);
+  } catch (error) {
+    console.error('桌面提醒未成功发送', error);
   }
 }
 
@@ -136,6 +147,15 @@ if (singleInstance)
       ipcMain.handle('events:list', (event) => {
         forMain(event.sender);
         return store.list();
+      });
+      ipcMain.handle('events:recovery-status', (event) => {
+        forMain(event.sender);
+        return store.recoveredFromBackup;
+      });
+      ipcMain.handle('ui:set-theme', (event, theme: 'light' | 'dark') => {
+        forMain(event.sender);
+        if (theme !== 'light' && theme !== 'dark') throw new Error('外观设置无效');
+        nativeTheme.themeSource = theme;
       });
       ipcMain.handle('events:save', (event, value: EventRecord) => {
         forMain(event.sender);
