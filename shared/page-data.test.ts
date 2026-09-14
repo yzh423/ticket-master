@@ -40,6 +40,24 @@ describe('大麦公开页面资料', () => {
     } as unknown as Document;
     expect(collectDamaiPageFields(doc).appOnly).toBe(true);
   });
+
+  it('长脚本截断或日期只在页面文字中时仍读取候选场次，不从价格范围捏造票档', () => {
+    const doc = {
+      querySelector: (selector: string) => ({
+        textContent: selector === '.hd .title span' ? '深圳演唱会' : '',
+      }),
+      querySelectorAll: () => [{ textContent: 'x'.repeat(300_001) }],
+      body: {
+        innerText:
+          '该渠道不支持购票 请到大麦App购买 {"priceRange":"¥380 - ¥1680","purchaseLimitation":4,"serviceNotes":[{"tagDescJson":"{\\"performRules\\":[{\\"performDate\\":\\"2026-09-19 周六 19:00\\"},{\\"performDate\\":\\"2026-10-01 周四 19:00\\"}]}"}]}',
+      },
+    } as unknown as Document;
+    const result = collectDamaiPageFields(doc);
+    expect(result.performDates).toEqual(['2026-09-19 周六 19:00', '2026-10-01 周四 19:00']);
+    expect(result.priceRange).toBe('¥380 - ¥1680');
+    expect(result.limitText).toBe('每笔订单最多购买4张。');
+    expect(result.ticketOptions).toEqual([]);
+  });
 });
 
 describe('其他平台的公开活动标记', () => {

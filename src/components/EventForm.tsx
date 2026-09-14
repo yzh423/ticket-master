@@ -12,6 +12,7 @@ import {
 } from '../../shared/model';
 import { parseLocalInstant } from '../../shared/rules';
 import { Temporal } from '@js-temporal/polyfill';
+import { parseTierText } from '../../shared/tier-import';
 
 const today = () => Temporal.Now.plainDateISO().toString();
 export function EventForm({
@@ -26,12 +27,7 @@ export function EventForm({
   onClose: () => void;
 }) {
   const quickChoice = Boolean(
-    !initial &&
-    seed?.platform === 'damai' &&
-    seed.title &&
-    seed.sourceUrl &&
-    seed.sessions?.length &&
-    seed.ticketOptions?.length,
+    !initial && seed?.platform === 'damai' && seed.title && seed.sourceUrl && seed.sessions?.length,
   );
   const [showAdvanced, setShowAdvanced] = useState(!quickChoice);
   const [title, setTitle] = useState(initial?.title ?? seed?.title ?? '');
@@ -49,12 +45,20 @@ export function EventForm({
     initial?.currency ?? seed?.currency ?? (seed && seed.platform !== 'damai' ? '' : 'CNY'),
   );
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
+  const purchaseLimit = Math.min(
+    20,
+    Math.max(1, Number(seed?.ruleNote.match(/每笔订单最多购买\s*(\d{1,2})\s*张/)?.[1]) || 20),
+  );
   const [budget, setBudget] = useState<number | ''>(initial?.budget ?? (seed ? '' : 1000));
-  const [budgetExtra, setBudgetExtra] = useState<0 | 10 | 20 | null>(null);
+  const [budgetExtra, setBudgetExtra] = useState<0 | 10 | 20 | null>(seed && !initial ? 10 : null);
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
   const [tiers, setTiers] = useState<Tier[]>(
     initial?.tiers ?? (seed?.ticketOptions?.length ? [] : [{ label: '', unitPrice: null }]),
   );
+  const [availableTickets, setAvailableTickets] = useState<Tier[]>(seed?.ticketOptions ?? []);
+  const [phoneTierText, setPhoneTierText] = useState('');
+  const [phoneTierExpanded, setPhoneTierExpanded] = useState(true);
+  const [tierImportError, setTierImportError] = useState('');
   const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? seed?.eventUrl ?? '');
   const [purchaseChannel, setPurchaseChannel] = useState<PurchaseChannel>(
     initial?.purchaseChannel ?? (seed?.appOnly ? 'app_required' : 'unknown'),
@@ -71,7 +75,7 @@ export function EventForm({
       .map((tier) => tier.unitPrice)
       .filter((price): price is number => price !== null);
     if (!prices.length) return '';
-    return Math.ceil(Math.max(...prices) * count * (1 + extra / 100) * 100) / 100;
+    return Math.ceil((Math.round(Math.max(...prices) * 100) * count * (100 + extra)) / 100) / 100;
   }
 
   function selectTicket(option: Tier) {
@@ -173,7 +177,7 @@ export function EventForm({
         )}
         <form
           onSubmit={submit}
-          className={`form-grid${quickChoice ? ' quick-form' : ''}${showAdvanced ? ' show-advanced' : ''}`}
+          className={`form-grid${quickChoice ? ' quick-form' : ''}${showAdvanced ? ' show-advanced' : ''}${availableTickets.length ? '' : ' needs-tier'}`}
         >
           {!initial && seed?.sessions?.length ? (
             <fieldset className="wide candidate-picker">
@@ -195,11 +199,73 @@ export function EventForm({
               <small>这些是当前公开页面列出的候选时间；最终以所选场次的官方页面为准。</small>
             </fieldset>
           ) : null}
-          {!initial && seed?.ticketOptions?.length ? (
+          {!initial && seed?.priceRange && !availableTickets.length ? (
+            <p className="wide candidate-warning" role="status">
+              页面只公开价格范围 {seed.priceRange}，没有可核实的逐档名称和单价。请在官方 App
+              中查看本场次的实际票档；可在下方逐档添加，或粘贴手机识别出的文字生成可点选项。
+            </p>
+          ) : null}
+          {!initial && seed?.appOnly && !seed.ticketOptions?.length ? (
+            <div className="wide phone-tier-import">
+              {phoneTierExpanded ? (
+                <>
+                  <strong>手机上的票档 → 点选偏好</strong>
+                  <p>
+                    在大麦 App
+                    找到该项目并选定场次，查看票档。可用手机相册的文字识别复制明确的“票档名称
+                    ¥单价”，然后粘贴到这里；也可以直接在下方添加。票档与订单仍需在手机上核对。
+                  </p>
+                  <textarea
+                    rows={3}
+                    aria-label="手机票档文字"
+                    value={phoneTierText}
+                    onChange={(e) => setPhoneTierText(e.target.value)}
+                    placeholder={'看台区 ¥380\n内场区 ¥1680'}
+                  />
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => {
+                      const found = parseTierText(phoneTierText);
+                      if (!found.length) {
+                        setTierImportError(
+                          '没有找到明确的“票档名称 ¥单价”，请核对手机文字，或在下方手动添加。',
+                        );
+                        return;
+                      }
+                      setAvailableTickets(found);
+                      setTiers([]);
+                      setBudget('');
+                      setTierImportError('');
+                      setPhoneTierExpanded(false);
+                    }}
+                  >
+                    生成票档选项
+                  </button>
+                  {tierImportError && <small role="alert">{tierImportError}</small>}
+                  <small>
+                    只在本机处理粘贴文字，不读取账号、证件或订单。价格范围、座位图和无法识别的文字不会当成票档。
+                  </small>
+                </>
+              ) : (
+                <div className="phone-tier-import-summary">
+                  <span>已从手机文字生成 {availableTickets.length} 个票档，请在下方选择。</span>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setPhoneTierExpanded(true)}
+                  >
+                    修改票档文字
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
+          {!initial && availableTickets.length ? (
             <fieldset className="wide candidate-picker">
               <legend>选择可接受票档</legend>
               <div className="candidate-list">
-                {seed.ticketOptions.map((option) => {
+                {availableTickets.map((option) => {
                   const selectedIndex = tiers.findIndex(
                     (tier) => tier.label === option.label && tier.unitPrice === option.unitPrice,
                   );
@@ -228,12 +294,6 @@ export function EventForm({
               </div>
               <small>按点击顺序排列偏好，先选的票档优先。页面价格可能不含手续费。</small>
             </fieldset>
-          ) : null}
-          {!initial && seed?.priceRange && !seed.ticketOptions?.length ? (
-            <p className="wide candidate-warning" role="status">
-              页面只公开价格范围 {seed.priceRange}，没有可核实的逐档名称和单价。请在官方 App
-              或项目页查看准确票档后再添加；不会将价格上下限伪装成票档。
-            </p>
           ) : null}
           <label className="wide">
             活动名称
@@ -301,7 +361,7 @@ export function EventForm({
                   if (budgetExtra !== null) setBudget(suggestedBudget(tiers, next, budgetExtra));
                 }}
               >
-                {Array.from({ length: 20 }, (_, index) => index + 1).map((count) => (
+                {Array.from({ length: purchaseLimit }, (_, index) => index + 1).map((count) => (
                   <option value={count} key={count}>
                     {count} 人
                   </option>
@@ -332,7 +392,8 @@ export function EventForm({
               }}
             />
           </label>
-          {!initial && seed?.ticketOptions?.length ? (
+          {!initial &&
+          (availableTickets.length > 0 || tiers.some((tier) => tier.unitPrice !== null)) ? (
             <div className="wide budget-picks">
               <strong>按已选票档快速设置总预算</strong>
               {[0, 10, 20].map((extra) => (
@@ -350,7 +411,10 @@ export function EventForm({
                   {extra === 0 ? '票面总价' : `票面总价 +${extra}%`}
                 </button>
               ))}
-              <small>费用余量只是预算设置，不代表平台实际收费；最终总价仍以官方结算页为准。</small>
+              <small>
+                已选票档的最高单价 ×
+                人数，再加所选余量。费用余量只是你的预算上限，不代表平台实际收费；最终总价仍以官方结算页为准。
+              </small>
             </div>
           ) : null}
           <label>
@@ -427,7 +491,9 @@ export function EventForm({
                 </button>
               </div>
             ))}
-            <small>参考价不一定包含手续费；最终在官方结算页确认总金额。</small>
+            <small>
+              参考价不一定包含手续费；最终在官方结算页确认总金额。大麦本项目不支持自主选座时，只能选择官方展示的票档。
+            </small>
           </div>
           <label className="wide">
             官方购票网址（可暂空）

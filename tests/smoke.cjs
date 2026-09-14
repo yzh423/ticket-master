@@ -212,14 +212,26 @@ async function contrastRatio(locator) {
         currency: 'CNY',
         venue: '测试体育场',
         appOnly: true,
-        ruleNote: '',
+        ruleNote: '每笔订单最多购买4张。',
         eventUrl: 'https://detail.damai.cn/item.htm?id=1',
         sourceUrl: 'https://detail.damai.cn/item.htm?id=1',
       });
     });
-    await page.getByText('不会将价格上下限伪装成票档', { exact: false }).waitFor();
+    await page.getByText('没有可核实的逐档名称和单价', { exact: false }).waitFor();
+    assert.equal(await page.getByRole('radio', { name: /2026-10-01 周四 19:30/ }).count(), 1);
     assert.equal(await page.getByRole('button', { name: /380.*张/ }).count(), 0);
-    await page.getByRole('button', { name: '取消' }).click();
+    await page.getByRole('radio', { name: /2026-10-01 周四 19:30/ }).check();
+    assert.equal(await page.getByLabel('固定人数').locator('option').count(), 4);
+    await page.getByLabel('手机票档文字').fill('看台区 ¥380\n内场区 ¥1680');
+    await page.getByRole('button', { name: '生成票档选项' }).click();
+    await page.getByRole('button', { name: /内场区.*1,?680/ }).click();
+    await page.getByLabel('固定人数').selectOption('2');
+    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '3696');
+    await page.screenshot({ path: join(artifacts, 'phone-tiers.png') });
+    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('heading', { name: '仅显示价格范围的项目' }).waitFor();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除本地任务' }).click();
     await page.getByRole('button', { name: '我的任务' }).click();
     await page.getByRole('button', { name: '新建任务' }).click();
     await page.getByLabel('活动名称').fill('测试巡演 · 上海站');

@@ -6,10 +6,17 @@ export function collectDamaiPageFields(doc: Document): DamaiPublicFields {
   const notice = text('.notice0');
   const performDates: string[] = [];
   let priceRange = '';
+  let purchaseLimit = 0;
   let appOnly = /该渠道不支持(?:购票|购买)|请到大麦\s*App\s*购买/i.test(doc.body?.innerText || '');
-  const scripts = Array.from(doc.querySelectorAll('script')).slice(0, 80);
-  for (const script of scripts) {
-    const source = (script.textContent || '').slice(0, 300_000).replaceAll('\\"', '"');
+  const scripts = Array.from(doc.querySelectorAll('script')).slice(0, 100);
+  // Some public item data is rendered as text, while long bootstrap scripts put
+  // the performance rules well after the first few hundred KB.
+  const sources = [
+    ...scripts.map((script) => (script.textContent || '').slice(0, 1_000_000)),
+    (doc.body?.innerText || '').slice(0, 1_000_000),
+  ];
+  for (const raw of sources) {
+    const source = raw.replaceAll('\\"', '"');
     if (
       /"(?:buyBtnText|buyBtnTip)"\s*:\s*"(?:该渠道不支持(?:购票|购买)|请到大麦\s*App\s*购买)"/i.test(
         source,
@@ -24,13 +31,19 @@ export function collectDamaiPageFields(doc: Document): DamaiPublicFields {
       const match = source.match(/"priceRange"\s*:\s*"([^"\\]{1,80})"/);
       priceRange = match?.[1] || '';
     }
+    if (!purchaseLimit) {
+      const match = source.match(/"purchaseLimitation"\s*:\s*(\d{1,2})/);
+      purchaseLimit = Number(match?.[1] || 0);
+    }
   }
   return {
     title: text('.hd .title span'),
     dateText: text('.hd .time'),
     venueText: text('.hd .addr'),
     appOnly,
-    limitText: notice.match(/每笔订单最多购买[^。]{0,120}。/)?.[0] || '',
+    limitText:
+      notice.match(/每笔订单最多购买[^。]{0,120}。/)?.[0] ||
+      (purchaseLimit > 0 && purchaseLimit <= 20 ? `每笔订单最多购买${purchaseLimit}张。` : ''),
     performDates,
     ticketOptions: [],
     priceRange,

@@ -1124,6 +1124,35 @@ p {
 .form-grid.quick-form:not(.show-advanced) > .tier-editor {
   display: none;
 }
+.form-grid.quick-form.needs-tier:not(.show-advanced) > .tier-editor {
+  display: block;
+}
+.phone-tier-import {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.phone-tier-import strong {
+  font-size: 13px;
+}
+.phone-tier-import p,
+.phone-tier-import small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.phone-tier-import textarea {
+  margin: 10px 0;
+}
+.phone-tier-import-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
 .quick-form-toggle {
   display: flex;
   justify-content: flex-start;
