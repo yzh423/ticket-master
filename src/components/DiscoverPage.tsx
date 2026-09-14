@@ -14,7 +14,14 @@ import {
   X,
 } from 'lucide-react';
 import type { DiscoveredEvent, DiscoveryViewState } from '../../shared/discovery';
-import { platformLabels, type EventRecord, type PlatformId } from '../../shared/model';
+import {
+  platformLabels,
+  purchaseChannelLabels,
+  type EventRecord,
+  type PlatformId,
+  type SaleOpportunity,
+} from '../../shared/model';
+import { effectivePurchaseChannel } from '../../shared/rules';
 import { resolveSearch, searchSources, type SearchGroup } from '../../shared/search-sources';
 import './discover.css';
 
@@ -48,6 +55,7 @@ export function DiscoverPage({
   suspended,
   onDiscovered,
   activeTask,
+  activeOpportunity,
   onReturnToTask,
   onClearTask,
 }: {
@@ -55,6 +63,7 @@ export function DiscoverPage({
   suspended: boolean;
   onDiscovered: (event: DiscoveredEvent) => void;
   activeTask?: EventRecord | null;
+  activeOpportunity?: SaleOpportunity | null;
   onReturnToTask?: () => void;
   onClearTask?: () => void;
 }) {
@@ -78,6 +87,12 @@ export function DiscoverPage({
     mode: 'site' as const,
     home: state?.url ?? '',
   };
+  const purchaseChannel =
+    preview?.appOnly && state?.platform === platform
+      ? 'app_required'
+      : activeTask?.platform === platform
+        ? effectivePurchaseChannel(activeTask, activeOpportunity ?? undefined)
+        : 'unknown';
 
   useEffect(() => {
     if (activeTask) {
@@ -190,8 +205,18 @@ export function DiscoverPage({
   }
   async function openPhone() {
     try {
+      if (purchaseChannel === 'app_required') {
+        setDeviceMessage(
+          platform === 'damai'
+            ? await window.ticket.launchDamai()
+            : `${source.label} 本次需官方 App；当前没有经实测的 App 启动入口，请在手机手动打开。`,
+        );
+        return;
+      }
       const target = state?.platform === platform && state.trustedDomain ? state.url : source.home;
-      setDeviceMessage(await window.ticket.openOfficialOnAndroid(platform, target));
+      setDeviceMessage(
+        await window.ticket.openOfficialOnAndroid(platform, target, purchaseChannel),
+      );
     } catch (error) {
       setDeviceMessage(messageOf(error, '无法向手机发送官方链接'));
     }
@@ -207,6 +232,8 @@ export function DiscoverPage({
             <small>
               固定 {activeTask.quantity} 人 · 总预算 {activeTask.budget} {activeTask.currency} ·
               票档 {activeTask.tiers.map((tier) => tier.label).join(' → ')}
+              {' · '}
+              {purchaseChannelLabels[purchaseChannel]}
             </small>
           </div>
           <button className="button secondary" onClick={onReturnToTask}>
@@ -417,6 +444,9 @@ export function DiscoverPage({
               <small>
                 {preview.dateHint || '日期待核对'} · {preview.venue || '场馆待核对'}
               </small>
+              {preview.appOnly && (
+                <small>本项目网页提示需在大麦 App 下单；下方手机操作会打开原生 App。</small>
+              )}
             </div>
             {activeTask ? (
               <small>当前任务已建立，请在任务页核对并修改规则。</small>
@@ -477,9 +507,18 @@ export function DiscoverPage({
           <span className="discover-prep-step">ATTENDEES</span>
           <h3>核对实名观演人</h3>
           <p>在所选平台按具体活动规则登记或选择观演人，并核对人数、证件及购票资格。</p>
-          <button className="text-button" onClick={() => void openPhone()} disabled={web}>
-            发送当前官方链接到 Android <Smartphone size={15} />
-          </button>
+          {purchaseChannel === 'app_required' && platform !== 'damai' ? (
+            <small>
+              {source.label} 本次需原生 App；尚未核实安全的手机启动入口，请在手机手动打开。
+            </small>
+          ) : (
+            <button className="text-button" onClick={() => void openPhone()} disabled={web}>
+              {purchaseChannel === 'app_required'
+                ? '在 Android 打开大麦 App'
+                : '发送官方网页链接到 Android'}{' '}
+              <Smartphone size={15} />
+            </button>
+          )}
           {deviceMessage && <small role="status">{deviceMessage}</small>}
         </article>
       </div>

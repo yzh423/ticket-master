@@ -2,7 +2,9 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import {
   saleLabels,
+  purchaseChannelLabels,
   type EventRecord,
+  type PurchaseChannel,
   type SaleOpportunity,
   type SaleType,
 } from '../../shared/model';
@@ -29,6 +31,9 @@ export function OpportunityForm({
   );
   const [eligibility, setEligibility] = useState(initial?.eligibility ?? '');
   const [url, setUrl] = useState(initial?.url ?? event.eventUrl);
+  const [purchaseChannel, setPurchaseChannel] = useState<PurchaseChannel | ''>(
+    initial?.purchaseChannel ?? '',
+  );
   const [sourceUrl, setSourceUrl] = useState(initial?.sourceUrl ?? event.sourceUrl);
   const [verifiedAt, setVerifiedAt] = useState(
     initial?.verifiedAt ?? Temporal.Now.plainDateISO().toString(),
@@ -62,6 +67,7 @@ export function OpportunityForm({
         endsAt: endLocal ? parseLocalInstant(endLocal, timeZone) : null,
         eligibility: eligibility.trim(),
         url: url.trim(),
+        purchaseChannel: purchaseChannel || undefined,
         sourceUrl: sourceUrl.trim(),
         verifiedAt,
         status: initial?.status ?? 'planned',
@@ -214,6 +220,24 @@ export function OpportunityForm({
               }}
               placeholder="平台官方 HTTPS 地址；App 入口可留空"
             />
+          </label>
+          <label className="wide">
+            本次销售渠道
+            <select
+              aria-label="本次销售渠道"
+              value={purchaseChannel}
+              onChange={(e) => setPurchaseChannel(e.target.value as PurchaseChannel | '')}
+            >
+              <option value="">
+                沿用任务设置（{purchaseChannelLabels[event.purchaseChannel ?? 'unknown']}）
+              </option>
+              {Object.entries(purchaseChannelLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <small>预售、公开销售和补票可能使用不同渠道；请按这一次官方公告核对。</small>
           </label>
           <label className="wide">
             来源网址

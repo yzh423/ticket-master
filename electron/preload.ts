@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { EventRecord, PlatformId } from '../shared/model';
+import type { EventRecord, PlatformId, PurchaseChannel } from '../shared/model';
 import type { DiscoveredEvent, DiscoveryViewState } from '../shared/discovery';
 import type { DiscoveryBounds } from './inline-discovery';
 
@@ -43,8 +43,11 @@ contextBridge.exposeInMainWorld('ticket', {
     ipcRenderer.invoke('browser:clear-data', platform),
   usbStatus: (): Promise<string> => ipcRenderer.invoke('android:status'),
   launchDamai: (): Promise<string> => ipcRenderer.invoke('android:damai'),
-  openOfficialOnAndroid: (platform: PlatformId, url: string): Promise<string> =>
-    ipcRenderer.invoke('android:open-official', platform, url),
+  openOfficialOnAndroid: (
+    platform: PlatformId,
+    url: string,
+    channel?: PurchaseChannel,
+  ): Promise<string> => ipcRenderer.invoke('android:open-official', platform, url, channel),
   openDeviceHelp: (kind: 'android' | 'iphone'): Promise<void> =>
     ipcRenderer.invoke('device:help', kind),
   onChanged: (callback: () => void): (() => void) => {

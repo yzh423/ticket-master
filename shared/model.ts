@@ -24,6 +24,7 @@ export type PlatformId =
   | 'other';
 export type SaleType = 'presale' | 'public' | 'replenishment' | 'waitlist' | 'invitation';
 export type OpportunityStatus = 'planned' | 'registered' | 'completed' | 'missed';
+export type PurchaseChannel = 'unknown' | 'app_required' | 'web_supported';
 export type AttemptStatus =
   | 'participated'
   | 'queued'
@@ -44,6 +45,7 @@ export type SaleOpportunity = {
   endsAt: string | null;
   eligibility: string;
   url: string;
+  purchaseChannel?: PurchaseChannel;
   sourceUrl: string;
   verifiedAt: string;
   status: OpportunityStatus;
@@ -83,6 +85,7 @@ export type EventRecord = {
   owner: string;
   tiers: Tier[];
   eventUrl: string;
+  purchaseChannel?: PurchaseChannel;
   sourceUrl: string;
   verifiedAt: string;
   ruleNote: string;
@@ -92,6 +95,11 @@ export type EventRecord = {
   followUntil: string;
   createdAt: string;
   updatedAt: string;
+};
+export const purchaseChannelLabels: Record<PurchaseChannel, string> = {
+  unknown: '购票渠道待核对',
+  app_required: '仅官方 App 购票',
+  web_supported: '官方网页可购票',
 };
 export const checklistLabels: Record<ChecklistKey, string> = {
   account: '已登录正确账号并核对手机号',

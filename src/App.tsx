@@ -33,6 +33,7 @@ import {
 } from './event-mutation';
 import {
   chooseTier,
+  effectivePurchaseChannel,
   formatLocalInstant,
   hasOpenOrder,
   parseLocalInstant,
@@ -42,6 +43,7 @@ import {
 import {
   checklistLabels,
   platformLabels,
+  purchaseChannelLabels,
   resultLabels,
   saleLabels,
   type AttemptStatus,
@@ -202,6 +204,7 @@ export default function App() {
   const [editing, setEditing] = useState<EventRecord | true | null>(null);
   const [discoverySeed, setDiscoverySeed] = useState<DiscoveredEvent | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [activeOpportunityId, setActiveOpportunityId] = useState<string | null>(null);
   const [saleEditor, setSaleEditor] = useState<SaleOpportunity | true | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -248,6 +251,22 @@ export default function App() {
   const focusOrder = upcoming[0]
     ? pendingPaymentAttempts(upcoming[0].event.attempts).length > 0
     : false;
+  const focusChannel = upcoming[0]
+    ? effectivePurchaseChannel(upcoming[0].event, upcoming[0].sale)
+    : 'unknown';
+  const [mobileActionMessage, setMobileActionMessage] = useState('');
+
+  async function launchDamaiForTask(): Promise<string> {
+    try {
+      const result = await window.ticket.launchDamai();
+      setMobileActionMessage(result);
+      return result;
+    } catch (cause) {
+      const result = cause instanceof Error ? cause.message : '无法打开手机大麦';
+      setMobileActionMessage(result);
+      return result;
+    }
+  }
 
   function openEvent(id: string, tab: DetailTab = 'sales') {
     setDetailStartTab(tab);
@@ -374,6 +393,7 @@ export default function App() {
       }
       await window.ticket.discover(task.platform, url);
       setActiveTaskId(eventId);
+      setActiveOpportunityId(opportunityId ?? null);
       setSelectedId(null);
       setPage('discover');
     } catch (e) {
@@ -446,6 +466,7 @@ export default function App() {
               setPage('discover');
               setSelectedId(null);
               setActiveTaskId(null);
+              setActiveOpportunityId(null);
             }}
           >
             <Search size={18} /> 发现演出
@@ -561,6 +582,7 @@ export default function App() {
               onMutate={mutate}
               onOpen={openOfficial}
               onOpenInside={openInside}
+              onLaunchDamai={launchDamaiForTask}
               onReference={openReference}
             />
           ) : page === 'discover' ? (
@@ -568,10 +590,18 @@ export default function App() {
               web={web}
               suspended={Boolean(editing)}
               activeTask={events.find((item) => item.id === activeTaskId) ?? null}
+              activeOpportunity={
+                events
+                  .find((item) => item.id === activeTaskId)
+                  ?.opportunities.find((item) => item.id === activeOpportunityId) ?? null
+              }
               onReturnToTask={() => {
                 if (activeTaskId) openEvent(activeTaskId);
               }}
-              onClearTask={() => setActiveTaskId(null)}
+              onClearTask={() => {
+                setActiveTaskId(null);
+                setActiveOpportunityId(null);
+              }}
               onDiscovered={(discovered) => {
                 setDiscoverySeed(discovered);
                 setEditing(true);
@@ -633,6 +663,8 @@ export default function App() {
                       {upcoming[0].sale.eligibility || '请核对本场资格与官方规则'} ·{' '}
                       {timeText(upcoming[0].sale.startsAt, upcoming[0].sale.timeZone)}{' '}
                       {upcoming[0].sale.timeZone}
+                      {' · '}
+                      {purchaseChannelLabels[focusChannel]}
                     </p>
                     <div className="focus-next-step">
                       <strong>
@@ -667,15 +699,34 @@ export default function App() {
                             : '查看官方机会'}{' '}
                         <ArrowRight size={16} />
                       </button>
-                      {!focusOrder && (upcoming[0].sale.url || upcoming[0].event.eventUrl) && (
-                        <button
-                          className="button ghost"
-                          onClick={() => void openInside(upcoming[0].event.id, upcoming[0].sale.id)}
-                        >
-                          <ExternalLink size={16} /> {web ? '打开官方网页' : '内置官方网页'}
-                        </button>
-                      )}
+                      {!focusOrder &&
+                        focusChannel === 'app_required' &&
+                        upcoming[0].event.platform === 'damai' &&
+                        !web && (
+                          <button
+                            className="button ghost"
+                            onClick={() => void launchDamaiForTask()}
+                          >
+                            <Smartphone size={16} /> 在手机打开大麦 App
+                          </button>
+                        )}
+                      {!focusOrder &&
+                        focusChannel !== 'app_required' &&
+                        (upcoming[0].sale.url || upcoming[0].event.eventUrl) && (
+                          <button
+                            className="button ghost"
+                            onClick={() =>
+                              void openInside(upcoming[0].event.id, upcoming[0].sale.id)
+                            }
+                          >
+                            <ExternalLink size={16} /> {web ? '打开官方网页' : '内置官方网页'}
+                          </button>
+                        )}
                     </div>
+                    {focusChannel === 'app_required' && upcoming[0].event.platform !== 'damai' && (
+                      <small>本次需官方 App；该平台尚无实测启动入口，请在手机手动打开。</small>
+                    )}
+                    {mobileActionMessage && <small role="status">{mobileActionMessage}</small>}
                   </div>
                   <div className="focus-clock">
                     <span>
@@ -986,7 +1037,8 @@ export default function App() {
                   <span className="eyebrow">ANDROID BRIDGE</span>
                   <h1>设备与网页会话</h1>
                   <p>
-                    Android 手机可经 USB 发送官方活动链接；iPhone 请使用 Apple Devices
+                    Android 手机可经 USB 打开已验证的原生
+                    App，或发送官方网页链接；两种入口按本场规则区分。iPhone 请使用 Apple Devices
                     检查连接。活动选择和结账在手机上完成。
                   </p>
                 </div>
@@ -1009,7 +1061,7 @@ export default function App() {
                       className="button ghost"
                       onClick={async () => setUsb(await window.ticket.launchDamai())}
                     >
-                      <ExternalLink size={17} /> 尝试打开大麦
+                      <ExternalLink size={17} /> 打开大麦 App
                     </button>
                   </div>
                 </div>
@@ -1139,6 +1191,7 @@ function EventDetail({
   onMutate,
   onOpen,
   onOpenInside,
+  onLaunchDamai,
   onReference,
 }: {
   event: EventRecord;
@@ -1152,6 +1205,7 @@ function EventDetail({
   onMutate: (update: (current: EventRecord) => EventRecord) => Promise<boolean>;
   onOpen: (event: EventRecord, url?: string) => Promise<void>;
   onOpenInside: (eventId: string, opportunityId?: string) => Promise<void>;
+  onLaunchDamai: () => Promise<string>;
   onReference: (eventId: string, opportunityId?: string) => Promise<void>;
 }) {
   const [availability, setAvailability] = useState<Availability[]>(
@@ -1162,6 +1216,7 @@ function EventDetail({
   const [resultTotal, setResultTotal] = useState('');
   const [resultDeadlineLocal, setResultDeadlineLocal] = useState('');
   const [resultError, setResultError] = useState('');
+  const [phoneStatus, setPhoneStatus] = useState('');
   const [resultBusy, setResultBusy] = useState(false);
   const resultSubmitting = useRef(false);
   const [evidence, setEvidence] = useState('');
@@ -1184,6 +1239,7 @@ function EventDetail({
     event.quantity,
     event.budget,
   );
+  const eventChannel = effectivePurchaseChannel(event);
   const tierSignature = JSON.stringify(event.tiers);
   useEffect(() => setAvailability(event.tiers.map(() => 'unknown')), [event.id, tierSignature]);
   useEffect(
@@ -1260,14 +1316,31 @@ function EventDetail({
           <button className="button ghost" onClick={onEdit}>
             <Settings2 size={17} /> 编辑规则
           </button>
-          <button
-            className="button primary"
-            onClick={() => void onOpenInside(event.id)}
-            disabled={!event.eventUrl}
-          >
-            <ExternalLink size={17} />{' '}
-            {window.ticket.environment === 'web' ? '打开官方网页' : '内置官方网页'}
-          </button>
+          {eventChannel === 'app_required' &&
+            event.platform === 'damai' &&
+            window.ticket.environment !== 'web' && (
+              <button
+                className="button primary"
+                onClick={() => void onLaunchDamai().then(setPhoneStatus)}
+              >
+                <Smartphone size={17} /> 在手机打开大麦 App
+              </button>
+            )}
+          {eventChannel !== 'app_required' && (
+            <button
+              className="button primary"
+              onClick={() => void onOpenInside(event.id)}
+              disabled={!event.eventUrl}
+            >
+              <ExternalLink size={17} />{' '}
+              {window.ticket.environment === 'web' ? '打开官方网页' : '内置官方网页'}
+            </button>
+          )}
+          {eventChannel === 'app_required' && event.eventUrl && (
+            <button className="button ghost" onClick={() => void onOpenInside(event.id)}>
+              查看官网项目页
+            </button>
+          )}
           <button
             className="button ghost"
             onClick={() => void onOpen(event)}
@@ -1277,6 +1350,17 @@ function EventDetail({
           </button>
         </div>
       </div>
+      {eventChannel === 'app_required' && (
+        <p className="channel-notice" role="status">
+          {purchaseChannelLabels[eventChannel]}。网页仅用于核对公告；活动需在原平台 App 内定位。
+          {event.platform !== 'damai' ? '该平台尚无实测的手机启动入口，请在手机手动打开。' : ''}
+        </p>
+      )}
+      {phoneStatus && (
+        <p className="channel-notice" role="status">
+          {phoneStatus}
+        </p>
+      )}
       <div className="metric-bar">
         <div>
           <span>固定人数</span>
@@ -1354,7 +1438,8 @@ function EventDetail({
                           </span>
                         </div>
                         <small>
-                          {item.timeZone} · 来源核实 {item.verifiedAt}
+                          {item.timeZone} · 来源核实 {item.verifiedAt} ·{' '}
+                          {purchaseChannelLabels[effectivePurchaseChannel(event, item)]}
                         </small>
                         <p>
                           {item.eligibility || '资格以本场公告为准'}
@@ -1374,19 +1459,34 @@ function EventDetail({
                             <option value="completed">已结束</option>
                             <option value="missed">已错过</option>
                           </select>
+                          {effectivePurchaseChannel(event, item) === 'app_required' &&
+                            event.platform === 'damai' &&
+                            window.ticket.environment !== 'web' && (
+                              <button
+                                className="text-button"
+                                onClick={() => void onLaunchDamai().then(setPhoneStatus)}
+                              >
+                                <Smartphone size={14} /> 打开大麦 App
+                              </button>
+                            )}
                           {item.url && (
                             <>
                               <button
                                 className="text-button"
                                 onClick={() => void onOpenInside(event.id, item.id)}
                               >
-                                <ExternalLink size={14} /> 内置网页
+                                <ExternalLink size={14} />{' '}
+                                {effectivePurchaseChannel(event, item) === 'app_required'
+                                  ? '查看官网说明'
+                                  : '内置网页'}
                               </button>
                               <button
                                 className="text-button"
                                 onClick={() => void onOpen(event, item.url)}
                               >
-                                系统浏览器
+                                {effectivePurchaseChannel(event, item) === 'app_required'
+                                  ? '浏览器核对规则'
+                                  : '系统浏览器'}
                               </button>
                             </>
                           )}

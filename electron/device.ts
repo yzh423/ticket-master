@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import type { PlatformId } from '../shared/model';
+import type { PlatformId, PurchaseChannel } from '../shared/model';
 import { officialUrl } from '../shared/rules';
 
 const run = promisify(execFile);
@@ -108,12 +108,19 @@ export async function launchDamai(): Promise<string> {
   return '已尝试打开手机大麦。请在手机上核对活动、场次及订单。';
 }
 
-export async function openOfficialOnAndroid(platform: PlatformId, url: string): Promise<string> {
+export async function openOfficialOnAndroid(
+  platform: PlatformId,
+  url: string,
+  channel: PurchaseChannel = 'unknown',
+): Promise<string> {
+  if (channel === 'app_required')
+    throw new Error('本次销售仅支持官方 App，不会把网页链接当成购票入口发送');
+  if (!['unknown', 'web_supported'].includes(channel)) throw new Error('购票渠道无效');
   if (!officialUrl(platform, url)) throw new Error('仅可向手机发送所选平台的官方 HTTPS 链接');
   const serial = await onlyAuthorizedAndroid();
   const quotedUrl = quoteForAndroidShell(url);
   await adb(['-s', serial, 'shell', `am start -a android.intent.action.VIEW -d ${quotedUrl}`]);
-  return '已将官方链接发送到 Android 手机。若该平台未关联 App，手机会用浏览器打开；请在手机上确认页面。';
+  return '已发送官方 HTTPS 链接。Android 可能用浏览器打开；请在手机核对实际页面和本次销售渠道。';
 }
 
 export function quoteForAndroidShell(value: string): string {

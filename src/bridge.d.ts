@@ -1,4 +1,4 @@
-import type { EventRecord, PlatformId } from '../shared/model';
+import type { EventRecord, PlatformId, PurchaseChannel } from '../shared/model';
 import type { BrowserState } from '../shared/browser';
 import type { DiscoveredEvent, DiscoveryViewState } from '../shared/discovery';
 import type { DiscoveryBounds } from '../electron/inline-discovery';
@@ -29,7 +29,11 @@ declare global {
       clearBrowserData(platform: PlatformId): Promise<void>;
       usbStatus(): Promise<string>;
       launchDamai(): Promise<string>;
-      openOfficialOnAndroid(platform: PlatformId, url: string): Promise<string>;
+      openOfficialOnAndroid(
+        platform: PlatformId,
+        url: string,
+        channel?: PurchaseChannel,
+      ): Promise<string>;
       openDeviceHelp(kind: 'android' | 'iphone'): Promise<void>;
       exportBackup?(): Promise<string>;
       importBackup?(raw: string): Promise<number>;

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { adbExecutable, parseAdbDevices, quoteForAndroidShell } from './device';
+import {
+  adbExecutable,
+  openOfficialOnAndroid,
+  parseAdbDevices,
+  quoteForAndroidShell,
+} from './device';
 
 describe('Android USB diagnostics', () => {
   it('distinguishes authorized, unauthorized and offline devices', () => {
@@ -22,5 +27,10 @@ describe('Android USB diagnostics', () => {
     expect(quoteForAndroidShell("https://example.com/a?x=1&y='test'")).toBe(
       "'https://example.com/a?x=1&y='\\''test'\\'''",
     );
+  });
+  it('拒绝把仅 App 项目的网页链接发送成手机购票入口', async () => {
+    await expect(
+      openOfficialOnAndroid('damai', 'https://detail.damai.cn/item.htm?id=1', 'app_required'),
+    ).rejects.toThrow('仅支持官方 App');
   });
 });

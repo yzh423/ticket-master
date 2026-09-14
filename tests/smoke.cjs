@@ -250,8 +250,10 @@ async function contrastRatio(locator) {
     );
     await page.getByRole('button', { name: '编辑', exact: true }).click();
     await page.getByLabel('资格条件').fill('已核对本场资格');
+    await page.getByLabel('本次销售渠道').selectOption('app_required');
     await page.getByRole('button', { name: '保存机会' }).click();
     await page.getByText('已核对本场资格').waitFor();
+    await page.locator('.opportunity').getByRole('button', { name: '打开大麦 App' }).waitFor();
     await page.getByLabel('公开销售参与状态').selectOption('registered');
     await page.getByRole('button', { name: '返回任务列表' }).click();
     await page
@@ -309,8 +311,12 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '查看订单结果' }).click();
     await page.getByRole('button', { name: '编辑规则' }).click();
     await page.getByLabel('场馆 / 城市').fill('上海新体育馆');
+    await page.getByLabel('本场购票渠道').selectOption('app_required');
     await page.getByRole('button', { name: '保存任务' }).click();
     await page.getByText('上海新体育馆').waitFor();
+    await page.getByRole('button', { name: '在手机打开大麦 App' }).waitFor();
+    await page.getByText('网页仅用于核对公告', { exact: false }).waitFor();
+    await page.screenshot({ path: join(artifacts, 'app-only.png') });
     await page.getByRole('button', { name: '返回任务列表' }).click();
     await page.getByRole('button', { name: '销售日历' }).click();
     await page.getByRole('heading', { name: '销售日历' }).waitFor();

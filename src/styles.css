@@ -206,6 +206,21 @@ p {
 .detail-heading p span {
   padding: 0 7px;
 }
+.channel-notice {
+  margin: 10px 0 16px;
+  padding: 11px 14px;
+  border: 1px solid #b9d5f3;
+  border-radius: 10px;
+  background: #eef6ff;
+  color: #28577e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+:root[data-theme='dark'] .channel-notice {
+  border-color: #3c6680;
+  background: #183448;
+  color: #c0ddf3;
+}
 .button {
   border: 1px solid transparent;
   display: inline-flex;

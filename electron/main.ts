@@ -25,7 +25,13 @@ import {
   referenceUrl,
   remindersDue,
 } from '../shared/rules';
-import { platformLabels, saleLabels, type EventRecord, type PlatformId } from '../shared/model';
+import {
+  platformLabels,
+  saleLabels,
+  type EventRecord,
+  type PlatformId,
+  type PurchaseChannel,
+} from '../shared/model';
 
 if (!app.isPackaged && process.env.TICKET_WINDOW_TEST_DATA_DIR)
   app.setPath('userData', process.env.TICKET_WINDOW_TEST_DATA_DIR);
@@ -264,10 +270,13 @@ if (singleInstance)
           return error instanceof Error ? error.message : '无法确认手机上的大麦 App';
         }
       });
-      ipcMain.handle('android:open-official', async (event, platform: PlatformId, url: string) => {
-        forMain(event.sender);
-        return openOfficialOnAndroid(platform, url);
-      });
+      ipcMain.handle(
+        'android:open-official',
+        async (event, platform: PlatformId, url: string, channel?: PurchaseChannel) => {
+          forMain(event.sender);
+          return openOfficialOnAndroid(platform, url, channel);
+        },
+      );
       ipcMain.handle('device:help', async (event, kind: 'android' | 'iphone') => {
         forMain(event.sender);
         const urls = {

@@ -4,8 +4,10 @@ import type { DiscoveredEvent } from '../../shared/discovery';
 import {
   defaultChecklist,
   platformLabels,
+  purchaseChannelLabels,
   type EventRecord,
   type PlatformId,
+  type PurchaseChannel,
   type Tier,
 } from '../../shared/model';
 import { parseLocalInstant } from '../../shared/rules';
@@ -42,6 +44,9 @@ export function EventForm({
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
   const [tiers, setTiers] = useState<Tier[]>(initial?.tiers ?? [{ label: '', unitPrice: null }]);
   const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? seed?.eventUrl ?? '');
+  const [purchaseChannel, setPurchaseChannel] = useState<PurchaseChannel>(
+    initial?.purchaseChannel ?? (seed?.appOnly ? 'app_required' : 'unknown'),
+  );
   const [sourceUrl, setSourceUrl] = useState(initial?.sourceUrl ?? seed?.sourceUrl ?? '');
   const [verifiedAt, setVerifiedAt] = useState(initial?.verifiedAt ?? today());
   const [ruleNote, setRuleNote] = useState(initial?.ruleNote ?? seed?.ruleNote ?? '');
@@ -72,6 +77,7 @@ export function EventForm({
         owner: owner.trim(),
         tiers: tiers.map((t) => ({ label: t.label.trim(), unitPrice: t.unitPrice })),
         eventUrl: eventUrl.trim(),
+        purchaseChannel,
         sourceUrl: sourceUrl.trim(),
         verifiedAt,
         ruleNote: ruleNote.trim(),
@@ -290,6 +296,23 @@ export function EventForm({
               placeholder="https://detail.damai.cn/…"
             />
             <small>仅允许打开已验证的平台 HTTPS 域名；App 专属项目可留空。</small>
+          </label>
+          <label className="wide">
+            本场购票渠道
+            <select
+              aria-label="本场购票渠道"
+              value={purchaseChannel}
+              onChange={(e) => setPurchaseChannel(e.target.value as PurchaseChannel)}
+            >
+              {Object.entries(purchaseChannelLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <small>
+              以当前项目官方须知为准；“仅官方 App”会优先打开原生 App，不把网页链接当成购票入口。
+            </small>
           </label>
           <label className="wide">
             项目规则来源 / 公告网址

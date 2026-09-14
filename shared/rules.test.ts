@@ -12,6 +12,7 @@ import {
   paymentRemindersDue,
   pendingPaymentAttempts,
   opportunityDeadlineRemindersDue,
+  effectivePurchaseChannel,
 } from './rules';
 
 const tiers = [
@@ -21,6 +22,14 @@ const tiers = [
 ];
 
 describe('票档决策', () => {
+  it('销售机会的已核实渠道覆盖任务渠道；旧任务缺省为待核对', () => {
+    const event = { purchaseChannel: 'web_supported' } as never;
+    expect(effectivePurchaseChannel(event)).toBe('web_supported');
+    expect(effectivePurchaseChannel(event, { purchaseChannel: 'app_required' } as never)).toBe(
+      'app_required',
+    );
+    expect(effectivePurchaseChannel({} as never)).toBe('unknown');
+  });
   it('公开销售不强制优先购资格，预售则提示补齐资格', () => {
     const checklist = {
       account: true,

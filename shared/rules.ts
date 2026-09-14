@@ -5,6 +5,8 @@ import type {
   ChecklistKey,
   EventRecord,
   PlatformId,
+  PurchaseChannel,
+  SaleOpportunity,
   SaleType,
   Tier,
 } from './model';
@@ -58,6 +60,13 @@ export function referenceUrl(input: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function effectivePurchaseChannel(
+  event: EventRecord,
+  opportunity?: SaleOpportunity,
+): PurchaseChannel {
+  return opportunity?.purchaseChannel ?? event.purchaseChannel ?? 'unknown';
 }
 
 export function parseLocalInstant(localTime: string, timeZone: string): string {
@@ -233,6 +242,11 @@ export function validateEvent(value: EventRecord): EventRecord {
   if (value.eventUrl && !officialUrl(value.platform, value.eventUrl))
     throw new Error('官方入口域名尚未验证，请改用已验证的平台地址');
   if (
+    value.purchaseChannel !== undefined &&
+    !['unknown', 'app_required', 'web_supported'].includes(value.purchaseChannel)
+  )
+    throw new Error('任务购票渠道无效');
+  if (
     !Array.isArray(value.opportunities) ||
     value.opportunities.length > 100 ||
     !Array.isArray(value.attempts)
@@ -244,6 +258,11 @@ export function validateEvent(value: EventRecord): EventRecord {
   )
     throw new Error('销售机会或结果记录 ID 重复');
   for (const item of value.opportunities) {
+    if (
+      item.purchaseChannel !== undefined &&
+      !['unknown', 'app_required', 'web_supported'].includes(item.purchaseChannel)
+    )
+      throw new Error('销售机会购票渠道无效');
     if (
       !item.id ||
       !referenceUrl(item.sourceUrl) ||
