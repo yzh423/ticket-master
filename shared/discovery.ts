@@ -1,4 +1,4 @@
-import type { PlatformId } from './model';
+import type { PlatformId, Tier } from './model';
 import { Temporal } from '@js-temporal/polyfill';
 import { officialUrl } from './rules';
 
@@ -8,13 +8,22 @@ export type DamaiPublicFields = {
   venueText: string;
   appOnly: boolean;
   limitText: string;
+  performDates?: string[];
+  ticketOptions?: Tier[];
+  priceRange?: string;
 };
+
+export type DiscoveredSession = { local: string; label: string };
 
 export type DiscoveredEvent = {
   platform: PlatformId;
   title: string;
   dateHint: string;
   sessionLocal: string;
+  sessions: DiscoveredSession[];
+  ticketOptions: Tier[];
+  priceRange: string;
+  currency: string;
   venue: string;
   appOnly: boolean;
   ruleNote: string;
@@ -26,6 +35,9 @@ export type StructuredPublicFields = {
   title: string;
   dateText: string;
   venueText: string;
+  dateOptions?: string[];
+  ticketOptions?: Tier[];
+  currency?: string;
 };
 
 export type DiscoveryViewState = {
@@ -48,11 +60,18 @@ export function parseStructuredPublicEvent(
   if (!officialUrl(platform, url)) throw new Error('当前页面不是所选平台的官方网址');
   const title = fields.title.trim().replace(/\s+/g, ' ').slice(0, 120);
   if (!title) throw new Error('当前页面没有可识别的公开活动资料，请打开具体活动详情');
+  const sessions = sessionsFromDates(
+    fields.dateOptions?.length ? fields.dateOptions : [fields.dateText],
+  );
   return {
     platform,
     title,
     dateHint: fields.dateText.trim().slice(0, 100),
-    sessionLocal: '',
+    sessionLocal: sessions.length === 1 ? sessions[0].local : '',
+    sessions,
+    ticketOptions: distinctTicketOptions(fields.ticketOptions ?? []),
+    priceRange: '',
+    currency: /^[A-Z]{3}$/.test(fields.currency ?? '') ? fields.currency! : '',
     venue: fields.venueText.trim().replace(/\s+/g, ' ').slice(0, 160),
     appOnly: false,
     ruleNote: '信息来自当前官方页面公开的活动标记；请核对固定场次、所在地时区、票档与购票资格。',
@@ -89,7 +108,7 @@ export function damaiDiscoveryUrl(input: string): string {
 
 function singleSession(dateHint: string): string {
   const match = dateHint.match(
-    /^(20\d{2})[./-](\d{1,2})[./-](\d{1,2})(?:\s*周[一二三四五六日天])?\s+(\d{1,2}):(\d{2})$/,
+    /^(20\d{2})[./-](\d{1,2})[./-](\d{1,2})(?:\s*周[一二三四五六日天])?[ T](\d{1,2}):(\d{2})(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?$/,
   );
   if (!match) return '';
   try {
@@ -105,6 +124,42 @@ function singleSession(dateHint: string): string {
   }
 }
 
+function sessionsFromDates(values: string[]): DiscoveredSession[] {
+  const seen = new Set<string>();
+  const sessions: DiscoveredSession[] = [];
+  for (const raw of values.slice(0, 80)) {
+    if (typeof raw !== 'string') continue;
+    const label = raw.trim().replace(/\s+/g, ' ').slice(0, 80);
+    const local = singleSession(label);
+    if (!local || seen.has(local)) continue;
+    seen.add(local);
+    sessions.push({ local, label });
+  }
+  return sessions;
+}
+
+function distinctTicketOptions(values: Tier[]): Tier[] {
+  const seen = new Set<string>();
+  const options: Tier[] = [];
+  for (const value of values.slice(0, 80)) {
+    const label = typeof value?.label === 'string' ? value.label.trim().replace(/\s+/g, ' ') : '';
+    const unitPrice = value?.unitPrice;
+    if (
+      !label ||
+      label.length > 80 ||
+      typeof unitPrice !== 'number' ||
+      !Number.isFinite(unitPrice) ||
+      unitPrice < 0
+    )
+      continue;
+    const key = `${label}\u0000${unitPrice}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    options.push({ label, unitPrice });
+  }
+  return options;
+}
+
 export function parseDamaiPublicDetail(url: string, fields: DamaiPublicFields): DiscoveredEvent {
   const eventUrl = damaiItemUrl(url);
   const title = fields.title.trim().replace(/\s+/g, ' ').slice(0, 120);
@@ -118,11 +173,18 @@ export function parseDamaiPublicDetail(url: string, fields: DamaiPublicFields): 
     .replace(/^场馆\s*[:：]\s*/, '')
     .slice(0, 160);
   const limitText = fields.limitText.trim().slice(0, 180);
+  const sessions = sessionsFromDates(fields.performDates ?? []);
+  const ticketOptions = distinctTicketOptions(fields.ticketOptions ?? []);
   return {
     platform: 'damai',
     title,
     dateHint,
-    sessionLocal: singleSession(dateHint),
+    sessionLocal:
+      sessions.length === 1 ? sessions[0].local : sessions.length ? '' : singleSession(dateHint),
+    sessions,
+    ticketOptions,
+    priceRange: (fields.priceRange ?? '').trim().slice(0, 80),
+    currency: 'CNY',
     venue,
     appOnly: fields.appOnly,
     ruleNote: [

@@ -15,6 +15,7 @@ import {
   type DamaiPublicFields,
   type DiscoveredEvent,
 } from '../shared/discovery';
+import { collectDamaiPageFields } from '../shared/page-data';
 
 export class OfficialBrowserManager {
   private window: BrowserWindow | null = null;
@@ -119,24 +120,18 @@ export class OfficialBrowserManager {
       const url = contents.getURL();
       if (!/^https:\/\/detail\.damai\.cn\/item\.htm\?/.test(url))
         throw new Error('请先打开大麦活动详情页，再识别公开信息');
-      const raw = (await contents.executeJavaScript(`(() => {
-        const text = (selector) => document.querySelector(selector)?.textContent?.trim() || '';
-        const notice = text('.notice0');
-        return {
-          pageUrl: location.href,
-          title: text('.hd .title span'),
-          dateText: text('.hd .time'),
-          venueText: text('.hd .addr'),
-          appOnly: document.body?.innerText?.includes('该渠道不支持购买') || false,
-          limitText: notice.match(/每笔订单最多购买[^。]{0,120}。/)?.[0] || ''
-        };
-      })()`)) as Partial<DamaiPublicFields> & { pageUrl?: string };
+      const raw = (await contents.executeJavaScript(
+        `({ pageUrl: location.href, ...(${collectDamaiPageFields.toString()})(document) })`,
+      )) as Partial<DamaiPublicFields> & { pageUrl?: string };
       return parseDamaiPublicDetail(String(raw?.pageUrl ?? ''), {
         title: String(raw?.title ?? ''),
         dateText: String(raw?.dateText ?? ''),
         venueText: String(raw?.venueText ?? ''),
         appOnly: raw?.appOnly === true,
         limitText: String(raw?.limitText ?? ''),
+        performDates: Array.isArray(raw?.performDates) ? raw.performDates : [],
+        ticketOptions: Array.isArray(raw?.ticketOptions) ? raw.ticketOptions : [],
+        priceRange: String(raw?.priceRange ?? ''),
       });
     });
   }

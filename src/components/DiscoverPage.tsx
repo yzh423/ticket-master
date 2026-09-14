@@ -444,6 +444,17 @@ export function DiscoverPage({
               <small>
                 {preview.dateHint || '日期待核对'} · {preview.venue || '场馆待核对'}
               </small>
+              <small>
+                {preview.sessions?.length
+                  ? `${preview.sessions.length} 个候选场次`
+                  : '未识别到可选场次'}
+                {' · '}
+                {preview.ticketOptions?.length
+                  ? `${preview.ticketOptions.length} 个明确标价票档`
+                  : preview.priceRange
+                    ? `仅有价格范围 ${preview.priceRange}`
+                    : '未识别到逐档价格'}
+              </small>
               {preview.appOnly && (
                 <small>本项目网页提示需在大麦 App 下单；下方手机操作会打开原生 App。</small>
               )}
@@ -452,7 +463,8 @@ export function DiscoverPage({
               <small>当前任务已建立，请在任务页核对并修改规则。</small>
             ) : (
               <button onClick={() => onDiscovered(preview)}>
-                <Check size={16} /> 填入购票任务
+                <Check size={16} />{' '}
+                {preview.ticketOptions?.length ? '选择场次与票档' : '核对候选信息'}
               </button>
             )}
           </div>

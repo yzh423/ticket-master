@@ -10,6 +10,7 @@ import {
 } from '../shared/discovery';
 import { resolveSearch } from '../shared/search-sources';
 import { officialUrl, referenceUrl } from '../shared/rules';
+import { collectDamaiPageFields, collectStructuredPageFields } from '../shared/page-data';
 
 export type DiscoveryBounds = { x: number; y: number; width: number; height: number };
 
@@ -236,48 +237,30 @@ export class InlineDiscovery {
     if (this.platform === 'damai') {
       if (!/^https:\/\/detail\.damai\.cn\/item\.htm\?/.test(current))
         throw new Error('请先打开大麦活动详情页');
-      const raw = (await this.view.webContents.executeJavaScript(`(() => {
-        const text = (selector) => document.querySelector(selector)?.textContent?.trim() || '';
-        const notice = text('.notice0');
-        return { pageUrl: location.href, title: text('.hd .title span'),
-          dateText: text('.hd .time'), venueText: text('.hd .addr'),
-          appOnly: document.body?.innerText?.includes('该渠道不支持购买') || false,
-          limitText: notice.match(/每笔订单最多购买[^。]{0,120}。/)?.[0] || '' };
-      })()`)) as Partial<DamaiPublicFields> & { pageUrl?: string };
+      const raw = (await this.view.webContents.executeJavaScript(
+        `({ pageUrl: location.href, ...(${collectDamaiPageFields.toString()})(document) })`,
+      )) as Partial<DamaiPublicFields> & { pageUrl?: string };
       return parseDamaiPublicDetail(String(raw?.pageUrl ?? ''), {
         title: String(raw?.title ?? ''),
         dateText: String(raw?.dateText ?? ''),
         venueText: String(raw?.venueText ?? ''),
         appOnly: raw?.appOnly === true,
         limitText: String(raw?.limitText ?? ''),
+        performDates: Array.isArray(raw?.performDates) ? raw.performDates : [],
+        ticketOptions: Array.isArray(raw?.ticketOptions) ? raw.ticketOptions : [],
+        priceRange: String(raw?.priceRange ?? ''),
       });
     }
-    const raw = (await this.view.webContents.executeJavaScript(`(() => {
-      const nodes = [...document.querySelectorAll('script[type="application/ld+json"]')].slice(0, 40);
-      for (const script of nodes) {
-        try {
-          const queue = [JSON.parse((script.textContent || '').slice(0, 100000))];
-          for (let i = 0; i < queue.length && i < 100; i++) {
-            const value = queue[i];
-            if (Array.isArray(value)) { queue.push(...value.slice(0, 40)); continue; }
-            if (!value || typeof value !== 'object') continue;
-            const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
-            if (types.some((type) => typeof type === 'string' && /(^|\\/)\\w*Event$/.test(type))) {
-              const place = value.location;
-              return { pageUrl: location.href, title: value.name || '',
-                dateText: value.startDate || '',
-                venueText: typeof place === 'object' && place ? place.name || '' : '' };
-            }
-            if (value['@graph']) queue.push(value['@graph']);
-          }
-        } catch { /* malformed public markup */ }
-      }
-      return { pageUrl: location.href, title: '', dateText: '', venueText: '' };
-    })()`)) as Partial<StructuredPublicFields> & { pageUrl?: string };
+    const raw = (await this.view.webContents.executeJavaScript(
+      `({ pageUrl: location.href, ...(${collectStructuredPageFields.toString()})(document) })`,
+    )) as Partial<StructuredPublicFields> & { pageUrl?: string };
     return parseStructuredPublicEvent(this.platform, String(raw?.pageUrl ?? ''), {
       title: String(raw?.title ?? ''),
       dateText: String(raw?.dateText ?? ''),
       venueText: String(raw?.venueText ?? ''),
+      dateOptions: Array.isArray(raw?.dateOptions) ? raw.dateOptions : [],
+      ticketOptions: Array.isArray(raw?.ticketOptions) ? raw.ticketOptions : [],
+      currency: String(raw?.currency ?? ''),
     });
   }
 }

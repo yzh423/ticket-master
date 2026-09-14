@@ -1035,6 +1035,99 @@ p {
 .form-grid .wide {
   grid-column: 1/-1;
 }
+.candidate-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+}
+.candidate-picker legend,
+.budget-picks > strong {
+  padding: 0 5px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.candidate-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.candidate-choice,
+.candidate-ticket {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.candidate-choice:has(input:checked),
+.candidate-ticket.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-dark);
+}
+.candidate-choice input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.candidate-ticket strong {
+  color: var(--accent);
+}
+.candidate-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.candidate-picker small,
+.budget-picks small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.candidate-warning {
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.budget-picks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.budget-picks small {
+  width: 100%;
+}
+.form-grid.quick-form:not(.show-advanced) > label:not(.quick-field),
+.form-grid.quick-form:not(.show-advanced) > .tier-editor {
+  display: none;
+}
+.quick-form-toggle {
+  display: flex;
+  justify-content: flex-start;
+}
 label {
   font-size: 11px;
   font-weight: 600;

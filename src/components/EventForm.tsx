@@ -25,6 +25,15 @@ export function EventForm({
   onSave: (event: EventRecord) => Promise<void>;
   onClose: () => void;
 }) {
+  const quickChoice = Boolean(
+    !initial &&
+    seed?.platform === 'damai' &&
+    seed.title &&
+    seed.sourceUrl &&
+    seed.sessions?.length &&
+    seed.ticketOptions?.length,
+  );
+  const [showAdvanced, setShowAdvanced] = useState(!quickChoice);
   const [title, setTitle] = useState(initial?.title ?? seed?.title ?? '');
   const [platform, setPlatform] = useState<PlatformId>(
     initial?.platform ?? seed?.platform ?? 'damai',
@@ -37,12 +46,15 @@ export function EventForm({
     initial?.timeZone ?? (seed && seed.platform !== 'damai' ? '' : 'Asia/Shanghai'),
   );
   const [currency, setCurrency] = useState(
-    initial?.currency ?? (seed && seed.platform !== 'damai' ? '' : 'CNY'),
+    initial?.currency ?? seed?.currency ?? (seed && seed.platform !== 'damai' ? '' : 'CNY'),
   );
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
   const [budget, setBudget] = useState<number | ''>(initial?.budget ?? (seed ? '' : 1000));
+  const [budgetExtra, setBudgetExtra] = useState<0 | 10 | 20 | null>(null);
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
-  const [tiers, setTiers] = useState<Tier[]>(initial?.tiers ?? [{ label: '', unitPrice: null }]);
+  const [tiers, setTiers] = useState<Tier[]>(
+    initial?.tiers ?? (seed?.ticketOptions?.length ? [] : [{ label: '', unitPrice: null }]),
+  );
   const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? seed?.eventUrl ?? '');
   const [purchaseChannel, setPurchaseChannel] = useState<PurchaseChannel>(
     initial?.purchaseChannel ?? (seed?.appOnly ? 'app_required' : 'unknown'),
@@ -53,6 +65,27 @@ export function EventForm({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+
+  function suggestedBudget(chosen: Tier[], count: number, extra: 0 | 10 | 20): number | '' {
+    const prices = chosen
+      .map((tier) => tier.unitPrice)
+      .filter((price): price is number => price !== null);
+    if (!prices.length) return '';
+    return Math.ceil(Math.max(...prices) * count * (1 + extra / 100) * 100) / 100;
+  }
+
+  function selectTicket(option: Tier) {
+    const exists = tiers.some(
+      (tier) => tier.label === option.label && tier.unitPrice === option.unitPrice,
+    );
+    const next = exists
+      ? tiers.filter((tier) => tier.label !== option.label || tier.unitPrice !== option.unitPrice)
+      : tiers.length < 8
+        ? [...tiers, option]
+        : tiers;
+    setTiers(next);
+    if (budgetExtra !== null) setBudget(suggestedBudget(next, quantity, budgetExtra));
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -129,12 +162,79 @@ export function EventForm({
               <p>
                 页面日期：{seed.dateHint || '未显示明确日期'}。
                 {seed.appOnly ? '该项目提示在大麦 App 下单。' : '购票渠道仍需核对。'}
-                请确认下方固定场次、所在地时区、人数、票档与总预算。
+                {seed.sessions?.length ? ` 发现 ${seed.sessions.length} 个候选场次。` : ''}
+                {seed.ticketOptions?.length
+                  ? ` 发现 ${seed.ticketOptions.length} 个明确标价的票档。`
+                  : ''}
+                请从下方选择并核对场次、人数、票档与总预算。
               </p>
             </div>
           </div>
         )}
-        <form onSubmit={submit} className="form-grid">
+        <form
+          onSubmit={submit}
+          className={`form-grid${quickChoice ? ' quick-form' : ''}${showAdvanced ? ' show-advanced' : ''}`}
+        >
+          {!initial && seed?.sessions?.length ? (
+            <fieldset className="wide candidate-picker">
+              <legend>选择演出场次</legend>
+              <div className="candidate-list">
+                {seed.sessions.map((session) => (
+                  <label className="candidate-choice" key={session.local}>
+                    <input
+                      type="radio"
+                      name="discovered-session"
+                      value={session.local}
+                      checked={sessionLocal === session.local}
+                      onChange={() => setSessionLocal(session.local)}
+                    />
+                    <span>{session.label}</span>
+                  </label>
+                ))}
+              </div>
+              <small>这些是当前公开页面列出的候选时间；最终以所选场次的官方页面为准。</small>
+            </fieldset>
+          ) : null}
+          {!initial && seed?.ticketOptions?.length ? (
+            <fieldset className="wide candidate-picker">
+              <legend>选择可接受票档</legend>
+              <div className="candidate-list">
+                {seed.ticketOptions.map((option) => {
+                  const selectedIndex = tiers.findIndex(
+                    (tier) => tier.label === option.label && tier.unitPrice === option.unitPrice,
+                  );
+                  const selected = selectedIndex >= 0;
+                  return (
+                    <button
+                      type="button"
+                      className={`candidate-ticket${selected ? ' is-selected' : ''}`}
+                      aria-pressed={selected}
+                      disabled={!selected && tiers.length >= 8}
+                      key={`${option.label}-${option.unitPrice}`}
+                      onClick={() => selectTicket(option)}
+                    >
+                      {selected && (
+                        <em className="candidate-rank">
+                          {String.fromCharCode(65 + selectedIndex)}
+                        </em>
+                      )}
+                      <span>{option.label}</span>
+                      <strong>
+                        {option.unitPrice?.toLocaleString()} {currency || '币种待核对'} / 张
+                      </strong>
+                    </button>
+                  );
+                })}
+              </div>
+              <small>按点击顺序排列偏好，先选的票档优先。页面价格可能不含手续费。</small>
+            </fieldset>
+          ) : null}
+          {!initial && seed?.priceRange && !seed.ticketOptions?.length ? (
+            <p className="wide candidate-warning" role="status">
+              页面只公开价格范围 {seed.priceRange}，没有可核实的逐档名称和单价。请在官方 App
+              或项目页查看准确票档后再添加；不会将价格上下限伪装成票档。
+            </p>
+          ) : null}
           <label className="wide">
             活动名称
             <input
@@ -189,18 +289,36 @@ export function EventForm({
               <option value="Europe/London" />
             </datalist>
           </label>
-          <label>
+          <label className="quick-field">
             固定人数
-            <input
-              required
-              type="number"
-              min="1"
-              max="20"
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-            />
+            {seed && !initial ? (
+              <select
+                aria-label="固定人数"
+                value={quantity}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setQuantity(next);
+                  if (budgetExtra !== null) setBudget(suggestedBudget(tiers, next, budgetExtra));
+                }}
+              >
+                {Array.from({ length: 20 }, (_, index) => index + 1).map((count) => (
+                  <option value={count} key={count}>
+                    {count} 人
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                required
+                type="number"
+                min="1"
+                max="20"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+              />
+            )}
           </label>
-          <label>
+          <label className="quick-field">
             含费用的总预算
             <input
               required
@@ -208,9 +326,33 @@ export function EventForm({
               min="1"
               step="0.01"
               value={budget}
-              onChange={(e) => setBudget(e.target.value === '' ? '' : Number(e.target.value))}
+              onChange={(e) => {
+                setBudgetExtra(null);
+                setBudget(e.target.value === '' ? '' : Number(e.target.value));
+              }}
             />
           </label>
+          {!initial && seed?.ticketOptions?.length ? (
+            <div className="wide budget-picks">
+              <strong>按已选票档快速设置总预算</strong>
+              {[0, 10, 20].map((extra) => (
+                <button
+                  key={extra}
+                  type="button"
+                  className={`candidate-ticket${budgetExtra === extra ? ' is-selected' : ''}`}
+                  disabled={!tiers.length || !/^[A-Z]{3}$/.test(currency)}
+                  onClick={() => {
+                    const choice = extra as 0 | 10 | 20;
+                    setBudgetExtra(choice);
+                    setBudget(suggestedBudget(tiers, quantity, choice));
+                  }}
+                >
+                  {extra === 0 ? '票面总价' : `票面总价 +${extra}%`}
+                </button>
+              ))}
+              <small>费用余量只是预算设置，不代表平台实际收费；最终总价仍以官方结算页为准。</small>
+            </div>
+          ) : null}
           <label>
             币种
             <input
@@ -342,6 +484,17 @@ export function EventForm({
               placeholder="例如：仅 App 下单；实名观演人；每单限购 2 张……"
             />
           </label>
+          {quickChoice && (
+            <div className="wide quick-form-toggle">
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setShowAdvanced((value) => !value)}
+              >
+                {showAdvanced ? '收起详细资料' : '查看识别详情与手动修改'}
+              </button>
+            </div>
+          )}
           {error && (
             <p className="form-error wide" role="alert">
               {error}

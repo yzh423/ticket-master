@@ -156,6 +156,71 @@ async function contrastRatio(locator) {
     await page.waitForTimeout(240);
     assert.ok((await contrastRatio(page.getByRole('button', { name: '新建任务' }))) >= 4.5);
     await page.screenshot({ path: join(artifacts, 'empty.png') });
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
+        platform: 'damai',
+        title: '自动识别测试巡演',
+        dateHint: '2026.10.01-10.02',
+        sessionLocal: '',
+        sessions: [
+          { local: '2026-10-01T19:30', label: '2026-10-01 周四 19:30' },
+          { local: '2026-10-02T19:30', label: '2026-10-02 周五 19:30' },
+        ],
+        ticketOptions: [
+          { label: '看台', unitPrice: 580 },
+          { label: '内场', unitPrice: 1280 },
+        ],
+        priceRange: '¥380 - ¥1680',
+        currency: 'CNY',
+        venue: '测试体育场',
+        appOnly: true,
+        ruleNote: '页面提示仅 App 购票',
+        eventUrl: 'https://detail.damai.cn/item.htm?id=1',
+        sourceUrl: 'https://detail.damai.cn/item.htm?id=1',
+      });
+    });
+    await page.getByRole('radio', { name: /2026-10-02 周五 19:30/ }).check();
+    await page.getByRole('button', { name: /内场.*1,?280/ }).click();
+    await page.getByRole('button', { name: /看台.*580/ }).click();
+    await page.getByLabel('固定人数').selectOption('2');
+    await page.getByRole('button', { name: '票面总价 +20%' }).click();
+    await page.getByLabel('固定人数').selectOption('3');
+    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '4608');
+    await page.getByLabel('固定人数').selectOption('2');
+    await page.screenshot({ path: join(artifacts, 'discovered-options.png') });
+    await page.getByRole('button', { name: '查看识别详情与手动修改' }).click();
+    assert.equal(
+      await page.getByLabel('固定演出场次（当地时间）').inputValue(),
+      '2026-10-02T19:30',
+    );
+    assert.equal(await page.getByLabel('票档 1 名称').inputValue(), '内场');
+    assert.equal(await page.getByLabel('票档 2 名称').inputValue(), '看台');
+    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '3072');
+    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('heading', { name: '自动识别测试巡演' }).waitFor();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除本地任务' }).click();
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
+        platform: 'damai',
+        title: '仅显示价格范围的项目',
+        dateHint: '2026.10.01-10.02',
+        sessionLocal: '',
+        sessions: [{ local: '2026-10-01T19:30', label: '2026-10-01 周四 19:30' }],
+        ticketOptions: [],
+        priceRange: '¥380 - ¥1680',
+        currency: 'CNY',
+        venue: '测试体育场',
+        appOnly: true,
+        ruleNote: '',
+        eventUrl: 'https://detail.damai.cn/item.htm?id=1',
+        sourceUrl: 'https://detail.damai.cn/item.htm?id=1',
+      });
+    });
+    await page.getByText('不会将价格上下限伪装成票档', { exact: false }).waitFor();
+    assert.equal(await page.getByRole('button', { name: /380.*张/ }).count(), 0);
+    await page.getByRole('button', { name: '取消' }).click();
+    await page.getByRole('button', { name: '我的任务' }).click();
     await page.getByRole('button', { name: '新建任务' }).click();
     await page.getByLabel('活动名称').fill('测试巡演 · 上海站');
     await page.getByLabel('场馆 / 城市').fill('上海体育馆');

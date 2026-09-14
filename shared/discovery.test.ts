@@ -30,7 +30,7 @@ describe('其他平台公开活动资料', () => {
       platform: 'ticketmaster',
       title: 'Example Concert',
       venue: 'Example Arena',
-      sessionLocal: '',
+      sessionLocal: '2026-11-02T19:30',
     });
     expect(() =>
       parseStructuredPublicEvent('ticketmaster', 'https://fake.example/event/123', {
@@ -46,6 +46,30 @@ describe('其他平台公开活动资料', () => {
         venueText: '',
       }),
     ).toThrow();
+  });
+
+  it('从活动结构化日期和明确报价提供选择，不把未标价 offer 当成票档', () => {
+    const found = parseStructuredPublicEvent(
+      'ticketmaster',
+      'https://www.ticketmaster.com/example/event/123',
+      {
+        title: 'Example Concert',
+        dateText: '2026-11-02T19:30:00-05:00',
+        venueText: 'Example Arena',
+        dateOptions: ['2026-11-02T19:30:00-05:00', '2026-11-03T19:30:00-05:00'],
+        ticketOptions: [
+          { label: 'Lower Bowl', unitPrice: 120 },
+          { label: 'Unknown', unitPrice: null },
+        ],
+        currency: 'USD',
+      },
+    );
+    expect(found.sessions.map((session) => session.local)).toEqual([
+      '2026-11-02T19:30',
+      '2026-11-03T19:30',
+    ]);
+    expect(found.ticketOptions).toEqual([{ label: 'Lower Bowl', unitPrice: 120 }]);
+    expect(found.currency).toBe('USD');
   });
 });
 
@@ -82,6 +106,52 @@ describe('大麦公开详情提取', () => {
         limitText: '',
       }).sessionLocal,
     ).toBe('2026-09-23T19:30');
+  });
+
+  it('从明确列出的多个场次和票档生成可选项，保留用户选择权', () => {
+    const found = parseDamaiPublicDetail(url, {
+      title: '测试演出',
+      dateText: '时间：2026.09.19-10.05',
+      venueText: '场馆：深圳市 | 测试体育场',
+      appOnly: true,
+      limitText: '',
+      performDates: [
+        '2026-09-19 周六 19:00',
+        '2026-10-01 周四 19:00',
+        '2026-09-19 周六 19:00',
+        '2026-02-30 19:00',
+      ],
+      ticketOptions: [
+        { label: '看台', unitPrice: 580 },
+        { label: '内场', unitPrice: 1280 },
+        { label: '看台', unitPrice: 580 },
+      ],
+      priceRange: '¥380 - ¥1680',
+    });
+    expect(found.sessions).toEqual([
+      { local: '2026-09-19T19:00', label: '2026-09-19 周六 19:00' },
+      { local: '2026-10-01T19:00', label: '2026-10-01 周四 19:00' },
+    ]);
+    expect(found.sessionLocal).toBe('');
+    expect(found.ticketOptions).toEqual([
+      { label: '看台', unitPrice: 580 },
+      { label: '内场', unitPrice: 1280 },
+    ]);
+    expect(found.priceRange).toBe('¥380 - ¥1680');
+  });
+
+  it('价格范围不是独立票档，不能据此虚构票档', () => {
+    const found = parseDamaiPublicDetail(url, {
+      title: '测试演出',
+      dateText: '时间：2026.09.19-10.05',
+      venueText: '场馆：测试体育场',
+      appOnly: true,
+      limitText: '',
+      performDates: ['2026-09-19 周六 19:00'],
+      priceRange: '¥380 - ¥1680',
+    });
+    expect(found.sessionLocal).toBe('2026-09-19T19:00');
+    expect(found.ticketOptions).toEqual([]);
   });
 
   it('无效日期不能被自动修正成另一场时间', () => {
