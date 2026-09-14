@@ -1189,6 +1189,11 @@ export default function App() {
           initial={editing === true ? undefined : editing}
           seed={editing === true ? (discoverySeed ?? undefined) : undefined}
           onSave={save}
+          onLaunchApp={() =>
+            web
+              ? Promise.resolve('网页版本不能启动手机 App，请在手机上打开本场指定的官方 App。')
+              : launchDamaiForTask()
+          }
           onClose={() => {
             setEditing(null);
             setDiscoverySeed(null);

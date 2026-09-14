@@ -230,16 +230,16 @@ async function contrastRatio(locator) {
       1,
     );
     assert.equal(await page.getByRole('button', { name: /380.*张/ }).count(), 0);
-    assert.equal(await page.getByLabel('固定人数').locator('option').count(), 4);
-    await page.getByLabel('手机票档文字').fill('看台区 ¥380\n内场区 ¥1680');
-    await page.getByRole('button', { name: '生成票档选项' }).click();
-    await page.getByRole('button', { name: /内场区.*1,?680/ }).click();
-    await page.getByLabel('固定人数').selectOption('2');
-    await page.screenshot({ path: join(artifacts, 'phone-tiers.png') });
-    await page.getByRole('button', { name: '保存任务' }).click();
-    await page.getByRole('heading', { name: '仅显示价格范围的项目' }).waitFor();
-    page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: '删除本地任务' }).click();
+    assert.equal(await page.getByLabel('固定人数').count(), 0);
+    assert.equal(await page.getByLabel('手机票档文字').count(), 0);
+    assert.equal(await page.getByRole('button', { name: '开始购票' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: '保存任务' }).count(), 0);
+    assert.equal(
+      await page.getByRole('button', { name: '打开大麦 App 查看票档' }).isEnabled(),
+      true,
+    );
+    await page.screenshot({ path: join(artifacts, 'price-range-only.png') });
+    await page.getByRole('dialog').getByRole('button', { name: '关闭' }).click();
     await app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
         platform: 'damai',

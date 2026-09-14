@@ -12,18 +12,19 @@ import {
 } from '../../shared/model';
 import { parseLocalInstant } from '../../shared/rules';
 import { Temporal } from '@js-temporal/polyfill';
-import { parseTierText } from '../../shared/tier-import';
 
 const today = () => Temporal.Now.plainDateISO().toString();
 export function EventForm({
   initial,
   seed,
   onSave,
+  onLaunchApp,
   onClose,
 }: {
   initial?: EventRecord;
   seed?: DiscoveredEvent;
   onSave: (event: EventRecord, startNow?: boolean) => Promise<void>;
+  onLaunchApp: () => Promise<string>;
   onClose: () => void;
 }) {
   const quickChoice = Boolean(
@@ -52,13 +53,11 @@ export function EventForm({
   );
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
   const [tiers, setTiers] = useState<Tier[]>(
-    initial?.tiers ?? (seed?.ticketOptions?.length ? [] : [{ label: '', unitPrice: null }]),
+    initial?.tiers ??
+      (quickChoice || seed?.ticketOptions?.length ? [] : [{ label: '', unitPrice: null }]),
   );
-  const [availableTickets, setAvailableTickets] = useState<Tier[]>(seed?.ticketOptions ?? []);
-  const [phoneTierText, setPhoneTierText] = useState('');
-  const [phoneTierExpanded, setPhoneTierExpanded] = useState(true);
-  const [showManualTierEdit, setShowManualTierEdit] = useState(false);
-  const [tierImportError, setTierImportError] = useState('');
+  const availableTickets = seed?.ticketOptions ?? [];
+  const [appLaunchMessage, setAppLaunchMessage] = useState('');
   const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? seed?.eventUrl ?? '');
   const [purchaseChannel, setPurchaseChannel] = useState<PurchaseChannel>(
     initial?.purchaseChannel ?? (seed?.appOnly ? 'app_required' : 'unknown'),
@@ -156,8 +155,16 @@ export function EventForm({
       >
         <div className="dialog-head">
           <div>
-            <span className="eyebrow">购票意向</span>
-            <h2 id="event-form-title">{initial ? '编辑任务' : '创建购票任务'}</h2>
+            <span className="eyebrow">
+              {quickChoice && !availableTickets.length ? '官方入口' : '购票意向'}
+            </span>
+            <h2 id="event-form-title">
+              {initial
+                ? '编辑任务'
+                : quickChoice && !availableTickets.length
+                  ? '查看官方票档'
+                  : '创建购票任务'}
+            </h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
             <X size={19} />
@@ -175,7 +182,9 @@ export function EventForm({
                 {seed.ticketOptions?.length
                   ? ` 发现 ${seed.ticketOptions.length} 个明确标价的票档。`
                   : ''}
-                请从下方核对场次，选择票档和人数。
+                {availableTickets.length
+                  ? '请从下方核对场次，选择票档和人数。'
+                  : '本页没有可核实的逐档票价，请在原平台查看。'}
               </p>
             </div>
           </div>
@@ -186,7 +195,10 @@ export function EventForm({
         >
           {sessions.length ? (
             <fieldset className="wide candidate-picker">
-              <legend>已纳入全部 {sessions.length} 个演出场次</legend>
+              <legend>
+                {quickChoice && !availableTickets.length ? '官方页面列出' : '已纳入全部'}{' '}
+                {sessions.length} 个演出场次
+              </legend>
               <div className="candidate-list" role="list" aria-label="已确认演出场次">
                 {sessions.map((session) => (
                   <span className="candidate-choice" role="listitem" key={session.local}>
@@ -195,71 +207,17 @@ export function EventForm({
                 ))}
               </div>
               <small>
-                任务包含当前官方页面明确列出的全部日期与时间。页面更新时请重新核对；同一票档在不同场次是否有售，以手机
-                App 为准。
+                {quickChoice && !availableTickets.length
+                  ? '这是公开页面列出的日期与时间，进入原生 App 后请再次核对场次与票档。'
+                  : '任务包含当前官方页面明确列出的全部日期与时间。页面更新时请重新核对；同一票档在不同场次是否有售，以手机 App 为准。'}
               </small>
             </fieldset>
           ) : null}
-          {!initial && seed?.priceRange && !availableTickets.length ? (
+          {!initial && seed && !availableTickets.length ? (
             <p className="wide candidate-warning" role="status">
-              页面只公开价格范围 {seed.priceRange}，没有可核实的逐档名称和单价。请在官方 App
-              中查看本场次的实际票档；可在下方逐档添加，或粘贴手机识别出的文字生成可点选项。
+              {seed.priceRange ? `页面只公开价格范围 ${seed.priceRange}，` : '页面没有公开票档，'}
+              没有可核实的逐档名称和单价。请在官方购票入口查看实际票档；这里不会凭范围生成选项。
             </p>
-          ) : null}
-          {!initial && seed?.appOnly && !seed.ticketOptions?.length ? (
-            <div className="wide phone-tier-import">
-              {phoneTierExpanded ? (
-                <>
-                  <strong>手机上的票档 → 点选偏好</strong>
-                  <p>
-                    在大麦 App
-                    找到该项目并选定场次，查看票档。可用手机相册的文字识别复制明确的“票档名称
-                    ¥单价”，然后粘贴到这里；也可以直接在下方添加。票档与订单仍需在手机上核对。
-                  </p>
-                  <textarea
-                    rows={3}
-                    aria-label="手机票档文字"
-                    value={phoneTierText}
-                    onChange={(e) => setPhoneTierText(e.target.value)}
-                    placeholder={'看台区 ¥380\n内场区 ¥1680'}
-                  />
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={() => {
-                      const found = parseTierText(phoneTierText);
-                      if (!found.length) {
-                        setTierImportError(
-                          '没有找到明确的“票档名称 ¥单价”，请核对手机文字，或在下方手动添加。',
-                        );
-                        return;
-                      }
-                      setAvailableTickets(found);
-                      setTiers([]);
-                      setTierImportError('');
-                      setPhoneTierExpanded(false);
-                    }}
-                  >
-                    生成票档选项
-                  </button>
-                  {tierImportError && <small role="alert">{tierImportError}</small>}
-                  <small>
-                    只在本机处理粘贴文字，不读取账号、证件或订单。价格范围、座位图和无法识别的文字不会当成票档。
-                  </small>
-                </>
-              ) : (
-                <div className="phone-tier-import-summary">
-                  <span>已从手机文字生成 {availableTickets.length} 个票档，请在下方选择。</span>
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() => setPhoneTierExpanded(true)}
-                  >
-                    修改票档文字
-                  </button>
-                </div>
-              )}
-            </div>
           ) : null}
           {!initial && availableTickets.length ? (
             <fieldset className="wide candidate-picker">
@@ -347,31 +305,33 @@ export function EventForm({
               <option value="Europe/London" />
             </datalist>
           </label>
-          <label className="quick-field">
-            固定人数
-            {seed && !initial ? (
-              <select
-                aria-label="固定人数"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              >
-                {Array.from({ length: purchaseLimit }, (_, index) => index + 1).map((count) => (
-                  <option value={count} key={count}>
-                    {count} 人
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                required
-                type="number"
-                min="1"
-                max="20"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
-            )}
-          </label>
+          {(!quickChoice || availableTickets.length > 0) && (
+            <label className="quick-field">
+              固定人数
+              {seed && !initial ? (
+                <select
+                  aria-label="固定人数"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                >
+                  {Array.from({ length: purchaseLimit }, (_, index) => index + 1).map((count) => (
+                    <option value={count} key={count}>
+                      {count} 人
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                />
+              )}
+            </label>
+          )}
           <label>
             币种
             <input
@@ -391,20 +351,7 @@ export function EventForm({
               placeholder="只填写称呼，不填证件号"
             />
           </label>
-          {seed && !initial && !availableTickets.length && showAdvanced && !showManualTierEdit && (
-            <div className="wide candidate-warning">
-              当前来源未提供逐档报价。请优先从手机 App 导入；如果文字无法复制，可以
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setShowManualTierEdit(true)}
-              >
-                手动补充票档
-              </button>
-              。
-            </div>
-          )}
-          {(!seed || initial || availableTickets.length > 0 || showManualTierEdit) && (
+          {(!quickChoice || availableTickets.length > 0) && (
             <div className="wide tier-editor">
               <div className="section-title">
                 <strong>可接受票档 · 由上到下优先</strong>
@@ -509,7 +456,7 @@ export function EventForm({
               placeholder="例如：仅 App 下单；实名观演人；每单限购 2 张……"
             />
           </label>
-          {quickChoice && (
+          {quickChoice && availableTickets.length > 0 && (
             <div className="wide quick-form-toggle">
               <button
                 type="button"
@@ -527,29 +474,29 @@ export function EventForm({
           )}
           <div className="form-actions wide">
             {quickChoice && (
-              <small className="purchase-handoff-note">
-                打开官方入口；票档、场次、实名和付款请在原平台确认。
-              </small>
-            )}
-            {quickChoice && !tiers.some((tier) => tier.label.trim()) && (
-              <small role="status">
-                请先从本场官方页面或手机 App 获取票档并选择，再前往官方购票入口。
+              <small className="purchase-handoff-note" role="status">
+                {appLaunchMessage ||
+                  (availableTickets.length
+                    ? '打开官方入口；票档、场次、实名和付款请在原平台确认。'
+                    : '公开页面没有逐档票价；请在原生 App 查看并购票。')}
               </small>
             )}
             <button type="button" className="button ghost" onClick={onClose}>
               取消
             </button>
-            <button
-              type="submit"
-              className={quickChoice ? 'button ghost' : 'button primary'}
-              onClick={() => {
-                startAfterSave.current = false;
-              }}
-              disabled={busy || (quickChoice && !tiers.some((tier) => tier.label.trim()))}
-            >
-              {busy ? '保存中…' : '保存任务'}
-            </button>
-            {quickChoice && (
+            {(!quickChoice || availableTickets.length > 0) && (
+              <button
+                type="submit"
+                className={quickChoice ? 'button ghost' : 'button primary'}
+                onClick={() => {
+                  startAfterSave.current = false;
+                }}
+                disabled={busy || (quickChoice && !tiers.some((tier) => tier.label.trim()))}
+              >
+                {busy ? '保存中…' : '保存任务'}
+              </button>
+            )}
+            {quickChoice && availableTickets.length > 0 && (
               <button
                 type="submit"
                 className="button primary"
@@ -559,6 +506,28 @@ export function EventForm({
                 disabled={busy || !tiers.some((tier) => tier.label.trim())}
               >
                 {busy ? '打开中…' : '开始购票'}
+              </button>
+            )}
+            {quickChoice && !availableTickets.length && seed?.appOnly && (
+              <button
+                type="button"
+                className="button primary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    setAppLaunchMessage(await onLaunchApp());
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? '打开中…' : '打开大麦 App 查看票档'}
+              </button>
+            )}
+            {quickChoice && !availableTickets.length && !seed?.appOnly && (
+              <button type="button" className="button primary" onClick={onClose}>
+                返回官方网页查看票档
               </button>
             )}
           </div>
