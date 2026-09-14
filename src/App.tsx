@@ -198,7 +198,7 @@ export default function App() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailStartTab, setDetailStartTab] = useState<DetailTab>('sales');
-  const [page, setPage] = useState<Page>('dashboard');
+  const [page, setPage] = useState<Page>('discover');
   const [editing, setEditing] = useState<EventRecord | true | null>(null);
   const [discoverySeed, setDiscoverySeed] = useState<DiscoveredEvent | null>(null);
   const [saleEditor, setSaleEditor] = useState<SaleOpportunity | true | null>(null);

@@ -14,8 +14,7 @@ const { readFileSync } = require('node:fs');
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await page.goto(url);
-    await page.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
-    await page.getByRole('button', { name: '发现演出' }).click();
+    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
     await page
       .getByLabel('演出关键词或大麦链接')
       .fill('https://detail.damai.cn.evil.example/item.htm?id=1');
@@ -53,7 +52,7 @@ const { readFileSync } = require('node:fs');
       .click();
     await (await knowledgePage).waitForURL('https://www.artist.bandsintown.com/overview');
     await page.reload();
-    await page.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
+    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
     await page.getByRole('button', { name: '我的任务' }).click();
     await page.locator('.event-row').filter({ hasText: '浏览器启动测试' }).click();
     await page.getByRole('button', { name: '添加机会' }).click();
@@ -115,7 +114,7 @@ const { readFileSync } = require('node:fs');
       });
       const deniedPage = await denied.newPage();
       await deniedPage.goto(url);
-      await deniedPage.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
+      await deniedPage.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
       await deniedPage
         .getByRole('alert')
         .getByText('浏览器禁止读取本站数据', { exact: false })

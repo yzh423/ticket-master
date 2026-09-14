@@ -45,8 +45,6 @@ async function contrastRatio(locator) {
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
     });
-    await page.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
-    await page.getByRole('button', { name: '发现演出' }).click();
     await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
     await page.getByLabel('演出关键词或大麦链接').fill('邓紫棋 深圳');
     const discoverWindow = app.waitForEvent('window', {
@@ -297,6 +295,7 @@ async function contrastRatio(locator) {
   try {
     const page = await restarted.firstWindow();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+    await page.getByRole('button', { name: '我的任务' }).click();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     await page.getByRole('tab', { name: /票档判断/ }).click();
     await page.getByText('已有待完成或已确认订单').waitFor();
@@ -309,6 +308,7 @@ async function contrastRatio(locator) {
   try {
     const page = await recovered.firstWindow();
     await page.getByRole('alert').getByText('已从本机备份载入任务', { exact: false }).waitFor();
+    await page.getByRole('button', { name: '我的任务' }).click();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).waitFor();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     page.once('dialog', (dialog) => dialog.accept());
