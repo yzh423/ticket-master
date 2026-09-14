@@ -1,4 +1,5 @@
 import type { EventRecord } from '../shared/model';
+import { lastPerformanceAt } from '../shared/rules';
 
 type EventStorage = Pick<Window['ticket'], 'list' | 'save'>;
 
@@ -33,8 +34,8 @@ export function mergeRuleEdit(current: EventRecord, edited: EventRecord): EventR
     checklist: current.checklist,
     attempts: current.attempts,
     followUntil:
-      Date.parse(current.followUntil) > Date.parse(edited.sessionAt)
-        ? edited.sessionAt
+      Date.parse(current.followUntil) > Date.parse(lastPerformanceAt(edited))
+        ? lastPerformanceAt(edited)
         : current.followUntil,
   };
 }

@@ -75,6 +75,11 @@ export function parseLocalInstant(localTime: string, timeZone: string): string {
   return new Date(instant.epochMilliseconds).toISOString();
 }
 
+export function lastPerformanceAt(event: EventRecord): string {
+  const last = event.sessions?.at(-1)?.local;
+  return last ? parseLocalInstant(last, event.timeZone) : event.sessionAt;
+}
+
 export function formatLocalInstant(instant: string, timeZone: string): string {
   return Temporal.Instant.from(instant)
     .toZonedDateTimeISO(timeZone)
@@ -224,7 +229,7 @@ export function validateEvent(value: EventRecord): EventRecord {
   if (
     !Array.isArray(value.tiers) ||
     value.tiers.length === 0 ||
-    value.tiers.length > 8 ||
+    value.tiers.length > 80 ||
     value.tiers.some(
       (t) =>
         !t.label?.trim() ||
@@ -234,9 +239,27 @@ export function validateEvent(value: EventRecord): EventRecord {
     throw new Error('请按优先顺序填写可接受票档与单价');
   if (value.sessionAt !== parseLocalInstant(value.sessionLocal, value.timeZone))
     throw new Error('场次时间与时区不匹配');
+  if (value.sessions !== undefined) {
+    if (!Array.isArray(value.sessions) || value.sessions.length < 1 || value.sessions.length > 80)
+      throw new Error('演出场次列表无效');
+    const locals = value.sessions.map((session) => session.local);
+    if (
+      locals[0] !== value.sessionLocal ||
+      new Set(locals).size !== locals.length ||
+      value.sessions.some(
+        (session, index) =>
+          !session.label?.trim() ||
+          session.label.length > 80 ||
+          (index > 0 && session.local <= value.sessions![index - 1].local),
+      )
+    )
+      throw new Error('演出场次必须按时间排序、去重，并与任务开始时间一致');
+    for (const local of locals) parseLocalInstant(local, value.timeZone);
+  }
+  const latestSessionAt = lastPerformanceAt(value);
   if (
     !Number.isFinite(Date.parse(value.followUntil)) ||
-    Date.parse(value.followUntil) > Date.parse(value.sessionAt)
+    Date.parse(value.followUntil) > Date.parse(latestSessionAt)
   )
     throw new Error('跟进截止不能晚于演出开始');
   if (value.eventUrl && !officialUrl(value.platform, value.eventUrl))

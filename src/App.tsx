@@ -36,6 +36,7 @@ import {
   effectivePurchaseChannel,
   formatLocalInstant,
   hasOpenOrder,
+  lastPerformanceAt,
   parseLocalInstant,
   pendingPaymentAttempts,
   preparationGaps,
@@ -183,6 +184,10 @@ const timeText = (instant: string, zone = 'Asia/Shanghai') =>
     minute: '2-digit',
     hour12: false,
   }).format(new Date(instant));
+const sessionSummary = (event: EventRecord) =>
+  event.sessions?.length
+    ? `${event.sessions.length} 场 · ${event.sessions[0].local.slice(0, 10)}—${event.sessions.at(-1)!.local.slice(0, 10)}`
+    : timeText(event.sessionAt, event.timeZone);
 const activeOrder = new Set<AttemptStatus>(['pending_payment', 'paid_pending_issue', 'issued']);
 
 function StatusPill({ status }: { status: AttemptStatus }) {
@@ -832,7 +837,7 @@ export default function App() {
                           <strong>{event.title}</strong>
                           <span>
                             {platformLabels[event.platform]} <i /> {event.venue || '场馆未填'} <i />{' '}
-                            {timeText(event.sessionAt, event.timeZone)}
+                            {sessionSummary(event)}
                           </span>
                         </div>
                         <div className="event-meta">
@@ -1305,11 +1310,11 @@ function EventDetail({
       </button>
       <div className="detail-heading">
         <div>
-          <span className="eyebrow">{platformLabels[event.platform]} · 固定场次</span>
+          <span className="eyebrow">{platformLabels[event.platform]} · 演出场次</span>
           <h1>{event.title}</h1>
           <p>
-            {event.venue || '场馆未填'} <span>·</span> {timeText(event.sessionAt, event.timeZone)}{' '}
-            <span>·</span> {event.timeZone}
+            {event.venue || '场馆未填'} <span>·</span> {sessionSummary(event)} <span>·</span>{' '}
+            {event.timeZone}
           </p>
         </div>
         <div className="button-row">
@@ -1350,6 +1355,15 @@ function EventDetail({
           </button>
         </div>
       </div>
+      {event.sessions?.length ? (
+        <div className="saved-sessions" role="list" aria-label="已纳入的全部演出场次">
+          {event.sessions.map((session) => (
+            <span role="listitem" key={session.local}>
+              {session.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {eventChannel === 'app_required' && (
         <p className="channel-notice" role="status">
           {purchaseChannelLabels[eventChannel]}。网页仅用于核对公告；活动需在原平台 App 内定位。
@@ -1579,7 +1593,7 @@ function EventDetail({
               <div className="tier-list">
                 {event.tiers.map((tier, i) => (
                   <div className="tier-row" key={i}>
-                    <span className="tier-letter">{String.fromCharCode(65 + i)}</span>
+                    <span className="tier-letter">{i + 1}</span>
                     <div>
                       <strong>{tier.label}</strong>
                       <small>
@@ -1814,17 +1828,18 @@ function EventDetail({
                 </div>
               </div>
               <p>
-                默认跟进到演出开始。没有官方补票或候补来源时，状态保持“暂无已确认后续机会”，不预测整点回流。
+                默认跟进到末场演出开始。没有官方补票或候补来源时，状态保持“暂无已确认后续机会”，不预测整点回流。
               </p>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   try {
                     const at = parseLocalInstant(followLocal, event.timeZone);
-                    if (at > event.sessionAt) throw new Error('跟进截止不能晚于演出开始');
+                    if (at > lastPerformanceAt(event))
+                      throw new Error('跟进截止不能晚于末场演出开始');
                     void onMutate((current) => ({ ...current, followUntil: at }));
                   } catch {
-                    window.alert('请输入有效的截止时间，且不能晚于演出开始。');
+                    window.alert('请输入有效的截止时间，且不能晚于末场演出开始。');
                   }
                 }}
               >

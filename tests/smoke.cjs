@@ -179,10 +179,15 @@ async function contrastRatio(locator) {
         sourceUrl: 'https://detail.damai.cn/item.htm?id=1',
       });
     });
-    await page.getByRole('radio', { name: /2026-10-02 周五 19:30/ }).check();
+    assert.equal(
+      await page.getByRole('list', { name: '已确认演出场次' }).getByRole('listitem').count(),
+      2,
+    );
+    assert.equal(await page.getByLabel('固定演出场次（当地时间）').count(), 0);
     await page.getByRole('button', { name: /内场.*1,?280/ }).click();
     await page.getByRole('button', { name: /看台.*580/ }).click();
     await page.getByLabel('固定人数').selectOption('2');
+    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '2816');
     await page.getByRole('button', { name: '票面总价 +20%' }).click();
     await page.getByLabel('固定人数').selectOption('3');
     assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '4608');
@@ -190,14 +195,18 @@ async function contrastRatio(locator) {
     await page.screenshot({ path: join(artifacts, 'discovered-options.png') });
     await page.getByRole('button', { name: '查看识别详情与手动修改' }).click();
     assert.equal(
-      await page.getByLabel('固定演出场次（当地时间）').inputValue(),
-      '2026-10-02T19:30',
+      await page.getByRole('list', { name: '已确认演出场次' }).getByRole('listitem').count(),
+      2,
     );
     assert.equal(await page.getByLabel('票档 1 名称').inputValue(), '内场');
     assert.equal(await page.getByLabel('票档 2 名称').inputValue(), '看台');
     assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '3072');
     await page.getByRole('button', { name: '保存任务' }).click();
     await page.getByRole('heading', { name: '自动识别测试巡演' }).waitFor();
+    assert.equal(
+      await page.getByRole('list', { name: '已纳入的全部演出场次' }).getByRole('listitem').count(),
+      2,
+    );
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '删除本地任务' }).click();
     await app.evaluate(({ BrowserWindow }) => {
@@ -218,9 +227,11 @@ async function contrastRatio(locator) {
       });
     });
     await page.getByText('没有可核实的逐档名称和单价', { exact: false }).waitFor();
-    assert.equal(await page.getByRole('radio', { name: /2026-10-01 周四 19:30/ }).count(), 1);
+    assert.equal(
+      await page.getByRole('list', { name: '已确认演出场次' }).getByRole('listitem').count(),
+      1,
+    );
     assert.equal(await page.getByRole('button', { name: /380.*张/ }).count(), 0);
-    await page.getByRole('radio', { name: /2026-10-01 周四 19:30/ }).check();
     assert.equal(await page.getByLabel('固定人数').locator('option').count(), 4);
     await page.getByLabel('手机票档文字').fill('看台区 ¥380\n内场区 ¥1680');
     await page.getByRole('button', { name: '生成票档选项' }).click();

@@ -108,7 +108,7 @@ describe('大麦公开详情提取', () => {
     ).toBe('2026-09-23T19:30');
   });
 
-  it('从明确列出的多个场次和票档生成可选项，保留用户选择权', () => {
+  it('从明确列出的多个场次生成完整列表，并保留有单独报价的票档', () => {
     const found = parseDamaiPublicDetail(url, {
       title: '测试演出',
       dateText: '时间：2026.09.19-10.05',
@@ -132,7 +132,7 @@ describe('大麦公开详情提取', () => {
       { local: '2026-09-19T19:00', label: '2026-09-19 周六 19:00' },
       { local: '2026-10-01T19:00', label: '2026-10-01 周四 19:00' },
     ]);
-    expect(found.sessionLocal).toBe('');
+    expect(found.sessionLocal).toBe('2026-09-19T19:00');
     expect(found.ticketOptions).toEqual([
       { label: '看台', unitPrice: 580 },
       { label: '内场', unitPrice: 1280 },

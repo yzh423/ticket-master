@@ -38,6 +38,7 @@ export function EventForm({
   const [sessionLocal, setSessionLocal] = useState(
     initial?.sessionLocal ?? seed?.sessionLocal ?? '',
   );
+  const sessions = initial?.sessions ?? seed?.sessions ?? [];
   const [timeZone, setTimeZone] = useState(
     initial?.timeZone ?? (seed && seed.platform !== 'damai' ? '' : 'Asia/Shanghai'),
   );
@@ -58,6 +59,7 @@ export function EventForm({
   const [availableTickets, setAvailableTickets] = useState<Tier[]>(seed?.ticketOptions ?? []);
   const [phoneTierText, setPhoneTierText] = useState('');
   const [phoneTierExpanded, setPhoneTierExpanded] = useState(true);
+  const [showManualTierEdit, setShowManualTierEdit] = useState(false);
   const [tierImportError, setTierImportError] = useState('');
   const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? seed?.eventUrl ?? '');
   const [purchaseChannel, setPurchaseChannel] = useState<PurchaseChannel>(
@@ -84,9 +86,17 @@ export function EventForm({
     );
     const next = exists
       ? tiers.filter((tier) => tier.label !== option.label || tier.unitPrice !== option.unitPrice)
-      : tiers.length < 8
+      : tiers.length < 80
         ? [...tiers, option]
         : tiers;
+    setTiers(next);
+    if (budgetExtra !== null) setBudget(suggestedBudget(next, quantity, budgetExtra));
+  }
+
+  function changeTierPrice(index: number, input: string) {
+    const next = tiers.map((tier, position) =>
+      position === index ? { ...tier, unitPrice: input === '' ? null : Number(input) } : tier,
+    );
     setTiers(next);
     if (budgetExtra !== null) setBudget(suggestedBudget(next, quantity, budgetExtra));
   }
@@ -98,14 +108,17 @@ export function EventForm({
     setError('');
     setBusy(true);
     try {
-      const at = parseLocalInstant(sessionLocal, timeZone);
+      const firstSession = sessions[0]?.local ?? sessionLocal;
+      const at = parseLocalInstant(firstSession, timeZone);
+      const lastAt = parseLocalInstant(sessions.at(-1)?.local ?? firstSession, timeZone);
       const now = new Date().toISOString();
       await onSave({
         id: initial?.id ?? crypto.randomUUID(),
         title: title.trim(),
         platform,
         venue: venue.trim(),
-        sessionLocal,
+        sessionLocal: firstSession,
+        sessions: sessions.length ? sessions : undefined,
         timeZone,
         sessionAt: at,
         currency: currency.trim().toUpperCase(),
@@ -122,8 +135,8 @@ export function EventForm({
         checklist: initial?.checklist ?? defaultChecklist(),
         attempts: initial?.attempts ?? [],
         followUntil:
-          !initial || initial.followUntil === initial.sessionAt || initial.followUntil > at
-            ? at
+          !initial || initial.followUntil === initial.sessionAt || initial.followUntil > lastAt
+            ? lastAt
             : initial.followUntil,
         createdAt: initial?.createdAt ?? now,
         updatedAt: now,
@@ -177,26 +190,22 @@ export function EventForm({
         )}
         <form
           onSubmit={submit}
-          className={`form-grid${quickChoice ? ' quick-form' : ''}${showAdvanced ? ' show-advanced' : ''}${availableTickets.length ? '' : ' needs-tier'}`}
+          className={`form-grid${quickChoice ? ' quick-form' : ''}${showAdvanced ? ' show-advanced' : ''}`}
         >
-          {!initial && seed?.sessions?.length ? (
+          {sessions.length ? (
             <fieldset className="wide candidate-picker">
-              <legend>选择演出场次</legend>
-              <div className="candidate-list">
-                {seed.sessions.map((session) => (
-                  <label className="candidate-choice" key={session.local}>
-                    <input
-                      type="radio"
-                      name="discovered-session"
-                      value={session.local}
-                      checked={sessionLocal === session.local}
-                      onChange={() => setSessionLocal(session.local)}
-                    />
-                    <span>{session.label}</span>
-                  </label>
+              <legend>已纳入全部 {sessions.length} 个演出场次</legend>
+              <div className="candidate-list" role="list" aria-label="已确认演出场次">
+                {sessions.map((session) => (
+                  <span className="candidate-choice" role="listitem" key={session.local}>
+                    {session.label}
+                  </span>
                 ))}
               </div>
-              <small>这些是当前公开页面列出的候选时间；最终以所选场次的官方页面为准。</small>
+              <small>
+                任务包含当前官方页面明确列出的全部日期与时间。页面更新时请重新核对；同一票档在不同场次是否有售，以手机
+                App 为准。
+              </small>
             </fieldset>
           ) : null}
           {!initial && seed?.priceRange && !availableTickets.length ? (
@@ -275,15 +284,11 @@ export function EventForm({
                       type="button"
                       className={`candidate-ticket${selected ? ' is-selected' : ''}`}
                       aria-pressed={selected}
-                      disabled={!selected && tiers.length >= 8}
+                      disabled={!selected && tiers.length >= 80}
                       key={`${option.label}-${option.unitPrice}`}
                       onClick={() => selectTicket(option)}
                     >
-                      {selected && (
-                        <em className="candidate-rank">
-                          {String.fromCharCode(65 + selectedIndex)}
-                        </em>
-                      )}
+                      {selected && <em className="candidate-rank">{selectedIndex + 1}</em>}
                       <span>{option.label}</span>
                       <strong>
                         {option.unitPrice?.toLocaleString()} {currency || '币种待核对'} / 张
@@ -324,15 +329,17 @@ export function EventForm({
               placeholder="上海 · 某体育馆"
             />
           </label>
-          <label>
-            固定演出场次（当地时间）
-            <input
-              required
-              type="datetime-local"
-              value={sessionLocal}
-              onChange={(e) => setSessionLocal(e.target.value)}
-            />
-          </label>
+          {!sessions.length && (
+            <label>
+              固定演出场次（当地时间）
+              <input
+                required
+                type="datetime-local"
+                value={sessionLocal}
+                onChange={(e) => setSessionLocal(e.target.value)}
+              />
+            </label>
+          )}
           <label>
             活动所在地 IANA 时区
             <input
@@ -386,6 +393,8 @@ export function EventForm({
               min="1"
               step="0.01"
               value={budget}
+              readOnly={quickChoice && !showAdvanced}
+              placeholder="选择票档后自动计算"
               onChange={(e) => {
                 setBudgetExtra(null);
                 setBudget(e.target.value === '' ? '' : Number(e.target.value));
@@ -436,65 +445,69 @@ export function EventForm({
               placeholder="只填写称呼，不填证件号"
             />
           </label>
-          <div className="wide tier-editor">
-            <div className="section-title">
-              <strong>可接受票档 · 由上到下优先</strong>
+          {seed && !initial && !availableTickets.length && showAdvanced && !showManualTierEdit && (
+            <div className="wide candidate-warning">
+              当前来源未提供逐档报价。请优先从手机 App 导入；如果文字无法复制，可以
               <button
                 type="button"
                 className="text-button"
-                onClick={() => setTiers([...tiers, { label: '', unitPrice: null }])}
-                disabled={tiers.length >= 8}
+                onClick={() => setShowManualTierEdit(true)}
               >
-                <Plus size={15} /> 添加票档
+                手动补充票档
               </button>
+              。
             </div>
-            {tiers.map((tier, i) => (
-              <div className="tier-input" key={i}>
-                <span className="tier-letter">{String.fromCharCode(65 + i)}</span>
-                <input
-                  aria-label={`票档 ${i + 1} 名称`}
-                  required
-                  value={tier.label}
-                  placeholder="如 内场 / 看台"
-                  onChange={(e) =>
-                    setTiers(tiers.map((t, n) => (n === i ? { ...t, label: e.target.value } : t)))
-                  }
-                />
-                <input
-                  aria-label={`票档 ${i + 1} 单张参考价格`}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={tier.unitPrice ?? ''}
-                  placeholder="单张价格（未知可空）"
-                  onChange={(e) =>
-                    setTiers(
-                      tiers.map((t, n) =>
-                        n === i
-                          ? {
-                              ...t,
-                              unitPrice: e.target.value === '' ? null : Number(e.target.value),
-                            }
-                          : t,
-                      ),
-                    )
-                  }
-                />
+          )}
+          {(!seed || initial || availableTickets.length > 0 || showManualTierEdit) && (
+            <div className="wide tier-editor">
+              <div className="section-title">
+                <strong>可接受票档 · 由上到下优先</strong>
                 <button
                   type="button"
-                  className="icon-button"
-                  aria-label={`删除票档 ${i + 1}`}
-                  disabled={tiers.length === 1}
-                  onClick={() => setTiers(tiers.filter((_, n) => n !== i))}
+                  className="text-button"
+                  onClick={() => setTiers([...tiers, { label: '', unitPrice: null }])}
+                  disabled={tiers.length >= 80}
                 >
-                  <Trash2 size={16} />
+                  <Plus size={15} /> 添加票档
                 </button>
               </div>
-            ))}
-            <small>
-              参考价不一定包含手续费；最终在官方结算页确认总金额。大麦本项目不支持自主选座时，只能选择官方展示的票档。
-            </small>
-          </div>
+              {tiers.map((tier, i) => (
+                <div className="tier-input" key={i}>
+                  <span className="tier-letter">{i + 1}</span>
+                  <input
+                    aria-label={`票档 ${i + 1} 名称`}
+                    required
+                    value={tier.label}
+                    placeholder="如 内场 / 看台"
+                    onChange={(e) =>
+                      setTiers(tiers.map((t, n) => (n === i ? { ...t, label: e.target.value } : t)))
+                    }
+                  />
+                  <input
+                    aria-label={`票档 ${i + 1} 单张参考价格`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={tier.unitPrice ?? ''}
+                    placeholder="单张价格（未知可空）"
+                    onChange={(e) => changeTierPrice(i, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={`删除票档 ${i + 1}`}
+                    disabled={tiers.length === 1}
+                    onClick={() => setTiers(tiers.filter((_, n) => n !== i))}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              <small>
+                参考价不一定包含手续费；最终在官方结算页确认总金额。大麦本项目不支持自主选座时，只能选择官方展示的票档。
+              </small>
+            </div>
+          )}
           <label className="wide">
             官方购票网址（可暂空）
             <input
@@ -567,10 +580,19 @@ export function EventForm({
             </p>
           )}
           <div className="form-actions wide">
+            {quickChoice && (!tiers.length || budget === '') && (
+              <small role="status">
+                请先从本场官方页面或手机 App 获取明确票档并选择，预算会随人数和票档自动生成。
+              </small>
+            )}
             <button type="button" className="button ghost" onClick={onClose}>
               取消
             </button>
-            <button type="submit" className="button primary" disabled={busy}>
+            <button
+              type="submit"
+              className="button primary"
+              disabled={busy || (quickChoice && (!tiers.length || budget === ''))}
+            >
               {busy ? '保存中…' : '保存任务'}
             </button>
           </div>

@@ -190,7 +190,7 @@ function BrowserShell() {
             <div className="browser-tiers">
               {target?.tiers.map((tier, index) => (
                 <div key={index}>
-                  <b>{String.fromCharCode(65 + index)}</b>
+                  <b>{index + 1}</b>
                   <span>{tier.label}</span>
                   <small>
                     {tier.unitPrice === null

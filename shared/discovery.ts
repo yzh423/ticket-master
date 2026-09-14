@@ -1,4 +1,4 @@
-import type { PlatformId, Tier } from './model';
+import type { PlatformId, PerformanceSession, Tier } from './model';
 import { Temporal } from '@js-temporal/polyfill';
 import { officialUrl } from './rules';
 
@@ -13,7 +13,7 @@ export type DamaiPublicFields = {
   priceRange?: string;
 };
 
-export type DiscoveredSession = { local: string; label: string };
+export type DiscoveredSession = PerformanceSession;
 
 export type DiscoveredEvent = {
   platform: PlatformId;
@@ -67,7 +67,7 @@ export function parseStructuredPublicEvent(
     platform,
     title,
     dateHint: fields.dateText.trim().slice(0, 100),
-    sessionLocal: sessions.length === 1 ? sessions[0].local : '',
+    sessionLocal: sessions[0]?.local ?? '',
     sessions,
     ticketOptions: distinctTicketOptions(fields.ticketOptions ?? []),
     priceRange: '',
@@ -135,7 +135,7 @@ function sessionsFromDates(values: string[]): DiscoveredSession[] {
     seen.add(local);
     sessions.push({ local, label });
   }
-  return sessions;
+  return sessions.sort((a, b) => a.local.localeCompare(b.local));
 }
 
 function distinctTicketOptions(values: Tier[]): Tier[] {
@@ -173,14 +173,15 @@ export function parseDamaiPublicDetail(url: string, fields: DamaiPublicFields): 
     .replace(/^场馆\s*[:：]\s*/, '')
     .slice(0, 160);
   const limitText = fields.limitText.trim().slice(0, 180);
-  const sessions = sessionsFromDates(fields.performDates ?? []);
+  const sessions = sessionsFromDates(
+    fields.performDates?.length ? fields.performDates : [dateHint],
+  );
   const ticketOptions = distinctTicketOptions(fields.ticketOptions ?? []);
   return {
     platform: 'damai',
     title,
     dateHint,
-    sessionLocal:
-      sessions.length === 1 ? sessions[0].local : sessions.length ? '' : singleSession(dateHint),
+    sessionLocal: sessions[0]?.local ?? singleSession(dateHint),
     sessions,
     ticketOptions,
     priceRange: (fields.priceRange ?? '').trim().slice(0, 80),

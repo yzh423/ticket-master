@@ -36,6 +36,7 @@ export type AttemptStatus =
   | 'unknown';
 export type Availability = 'unknown' | 'available' | 'sold_out';
 export type Tier = { label: string; unitPrice: number | null };
+export type PerformanceSession = { local: string; label: string };
 export type SaleOpportunity = {
   id: string;
   type: SaleType;
@@ -77,6 +78,8 @@ export type EventRecord = {
   platform: PlatformId;
   venue: string;
   sessionLocal: string;
+  /** All confirmed performances. Older records have only sessionLocal. */
+  sessions?: PerformanceSession[];
   timeZone: string;
   sessionAt: string;
   currency: string;

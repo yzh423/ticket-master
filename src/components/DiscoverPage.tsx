@@ -464,7 +464,9 @@ export function DiscoverPage({
             ) : (
               <button onClick={() => onDiscovered(preview)}>
                 <Check size={16} />{' '}
-                {preview.ticketOptions?.length ? '选择场次与票档' : '核对候选信息'}
+                {preview.ticketOptions?.length
+                  ? '查看全部场次并选择票档'
+                  : '查看全部场次与票档信息'}
               </button>
             )}
           </div>

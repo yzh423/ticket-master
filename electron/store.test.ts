@@ -47,6 +47,23 @@ it('将任务保存在本地 SQLite，重启后可读且不会遗失人工结果
   second.close();
 });
 
+it('整场演出的全部日期持久保存，跟进可持续到末场', async () => {
+  const multi: EventRecord = {
+    ...event,
+    sessions: [
+      { local: '2026-10-01T19:30', label: '10月1日 19:30' },
+      { local: '2026-10-02T19:30', label: '10月2日 19:30' },
+    ],
+    followUntil: '2026-10-02T11:30:00.000Z',
+  };
+  const store = await TicketStore.open(file);
+  store.save(multi);
+  expect(store.list()[0].sessions).toHaveLength(2);
+  expect(() => store.save({ ...multi, followUntil: '2026-10-03T11:30:00.000Z' })).toThrow();
+  expect(() => store.save({ ...multi, sessions: [...multi.sessions!].reverse() })).toThrow();
+  store.close();
+});
+
 it('主库损坏时从本地备份恢复任务，避免空库覆盖已有记录', async () => {
   const first = await TicketStore.open(file);
   first.save(event);

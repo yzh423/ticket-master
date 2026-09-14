@@ -4,7 +4,7 @@ import type { Tier } from './model';
 export function parseTierText(text: string): Tier[] {
   const result: Tier[] = [];
   const seen = new Set<string>();
-  for (const line of text.slice(0, 4000).split(/\r?\n/).slice(0, 60)) {
+  for (const line of text.slice(0, 8000).split(/\r?\n/).slice(0, 100)) {
     const match = line
       .trim()
       .match(/^(.{2,55}?)\s*[:：·|\-]?\s*[¥￥]\s*(\d{1,6}(?:\.\d{1,2})?)\s*(?:元|\/张|每张)?\s*$/);
@@ -19,7 +19,7 @@ export function parseTierText(text: string): Tier[] {
     if (seen.has(key)) continue;
     seen.add(key);
     result.push({ label, unitPrice });
-    if (result.length === 8) break;
+    if (result.length === 80) break;
   }
   return result;
 }

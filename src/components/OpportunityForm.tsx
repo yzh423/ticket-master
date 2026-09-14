@@ -139,7 +139,8 @@ export function OpportunityForm({
                     >
                       <strong>{candidate.localTime.replace('T', ' ')}</strong>
                       <span>{candidate.excerpt}</span>
-                      {candidate.localTime === event.sessionLocal && (
+                      {(event.sessions?.some((session) => session.local === candidate.localTime) ??
+                        candidate.localTime === event.sessionLocal) && (
                         <em>与已录入的演出场次相同，请确认它是否真是开售时间。</em>
                       )}
                     </button>

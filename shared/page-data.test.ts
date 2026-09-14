@@ -58,6 +58,47 @@ describe('大麦公开页面资料', () => {
     expect(result.limitText).toBe('每笔订单最多购买4张。');
     expect(result.ticketOptions).toEqual([]);
   });
+
+  it('从公开退票规则中保留九个不同场次', () => {
+    const dates = [
+      '2026-09-19 周六 19:00',
+      '2026-09-20 周日 19:00',
+      '2026-09-25 周五 19:00',
+      '2026-09-26 周六 19:00',
+      '2026-09-27 周日 19:00',
+      '2026-10-01 周四 19:00',
+      '2026-10-02 周五 19:00',
+      '2026-10-04 周日 19:00',
+      '2026-10-05 周一 19:00',
+    ];
+    const doc = {
+      querySelector: () => ({ textContent: '深圳演唱会' }),
+      querySelectorAll: () => [
+        {
+          textContent: JSON.stringify({
+            performRules: dates.map((performDate) => ({ performDate })),
+          }),
+        },
+      ],
+      body: { innerText: '' },
+    } as unknown as Document;
+    expect(collectDamaiPageFields(doc).performDates).toEqual(dates);
+  });
+
+  it('隐藏的公开页面数据不在 innerText 中时，仍可从 DOM 文字读取', () => {
+    const doc = {
+      querySelector: () => ({ textContent: '测试演出' }),
+      querySelectorAll: () => [],
+      body: {
+        innerText: '',
+        textContent: '{"performDate":"2026-10-04 周日 19:00","priceRange":"¥380 - ¥1680"}',
+      },
+    } as unknown as Document;
+    expect(collectDamaiPageFields(doc)).toMatchObject({
+      performDates: ['2026-10-04 周日 19:00'],
+      priceRange: '¥380 - ¥1680',
+    });
+  });
 });
 
 describe('其他平台的公开活动标记', () => {

@@ -14,6 +14,7 @@ export function collectDamaiPageFields(doc: Document): DamaiPublicFields {
   const sources = [
     ...scripts.map((script) => (script.textContent || '').slice(0, 1_000_000)),
     (doc.body?.innerText || '').slice(0, 1_000_000),
+    (doc.body?.textContent || '').slice(0, 2_000_000),
   ];
   for (const raw of sources) {
     const source = raw.replaceAll('\\"', '"');

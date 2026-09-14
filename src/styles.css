@@ -206,6 +206,20 @@ p {
 .detail-heading p span {
   padding: 0 7px;
 }
+.saved-sessions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -12px 0 20px;
+}
+.saved-sessions span {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 12px;
+}
 .channel-notice {
   margin: 10px 0 16px;
   padding: 11px 14px;
@@ -1123,9 +1137,6 @@ p {
 .form-grid.quick-form:not(.show-advanced) > label:not(.quick-field),
 .form-grid.quick-form:not(.show-advanced) > .tier-editor {
   display: none;
-}
-.form-grid.quick-form.needs-tier:not(.show-advanced) > .tier-editor {
-  display: block;
 }
 .phone-tier-import {
   padding: 16px;
