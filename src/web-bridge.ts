@@ -1,4 +1,5 @@
 import { resolveBrowserTarget } from '../shared/browser';
+import { marketSource } from '../shared/market';
 import type { EventRecord, PlatformId } from '../shared/model';
 import { officialUrl, referenceUrl, validateEvent } from '../shared/rules';
 
@@ -34,6 +35,10 @@ function write(events: EventRecord[]): void {
 
 function openOfficial(platform: PlatformId, url: string): void {
   if (!officialUrl(platform, url)) throw new Error('该入口未通过官方域名检查，请先核对来源');
+  openExternalTab(url);
+}
+
+function openExternalTab(url: string): void {
   const opened = window.open('about:blank', '_blank');
   if (!opened) throw new Error('浏览器拦截了新标签页。请允许本站弹出窗口后重试。');
   opened.opener = null;
@@ -69,6 +74,7 @@ export function installWebBridge(): void {
       write(read().filter((event) => event.id !== id));
     },
     openOfficial: async (platform, url) => openOfficial(platform, url),
+    openKnowledgeSource: async (id) => openExternalTab(marketSource(id)),
     openReference: async (eventId, opportunityId) => {
       const event = read().find((item) => item.id === eventId);
       if (!event) throw new Error('任务已不存在');
@@ -76,10 +82,7 @@ export function installWebBridge(): void {
         ? event.opportunities.find((item) => item.id === opportunityId)?.sourceUrl
         : event.sourceUrl;
       if (!source || !referenceUrl(source)) throw new Error('规则来源地址无效');
-      const opened = window.open('about:blank', '_blank');
-      if (!opened) throw new Error('浏览器拦截了新标签页');
-      opened.opener = null;
-      opened.location.replace(source);
+      openExternalTab(source);
     },
     openInside: async (eventId, opportunityId) => {
       const target = resolveBrowserTarget(read(), eventId, opportunityId);

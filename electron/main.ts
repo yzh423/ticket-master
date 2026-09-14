@@ -15,6 +15,7 @@ import { promisify } from 'node:util';
 import { TicketStore } from './store';
 import { OfficialBrowserManager } from './official-browser';
 import { resolveBrowserTarget } from '../shared/browser';
+import { marketSource } from '../shared/market';
 import {
   formatLocalInstant,
   officialUrl,
@@ -212,6 +213,10 @@ if (singleInstance)
           : task.sourceUrl;
         if (!source || !referenceUrl(source)) throw new Error('规则来源地址无效');
         await shell.openExternal(source);
+      });
+      ipcMain.handle('knowledge:open', async (event, id: string) => {
+        forMain(event.sender);
+        await shell.openExternal(marketSource(id));
       });
       ipcMain.handle('official:open-inside', (event, eventId: string, opportunityId?: string) => {
         forMain(event.sender);

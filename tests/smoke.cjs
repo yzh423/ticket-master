@@ -69,6 +69,12 @@ async function contrastRatio(locator) {
     await page.getByLabel('项目规则来源 / 公告网址').fill('https://detail.damai.cn/item.htm?id=1');
     await page.getByRole('button', { name: '保存任务' }).click();
     await page.getByRole('heading', { name: '测试巡演 · 上海站' }).waitFor();
+    await page.getByRole('button', { name: '返回任务列表' }).click();
+    await page
+      .getByRole('region', { name: '下一步行动' })
+      .getByRole('button', { name: /补全官方销售日历/ })
+      .click();
+    await page.getByRole('tab', { name: /官方机会/ }).waitFor();
     const browserWindow = app.waitForEvent('window', {
       predicate: (candidate) => candidate.url().includes('browser.html'),
     });
@@ -112,7 +118,7 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '清除该平台网页数据' }).click();
     await page.getByRole('status').getByText('已清除。再次打开该平台', { exact: false }).waitFor();
     await page.getByRole('button', { name: '我的任务' }).click();
-    await page.getByRole('button', { name: /测试巡演 · 上海站/ }).click();
+    await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     await page.getByRole('button', { name: '添加机会' }).click();
     await page.getByLabel('开始（所在地时间）').fill('2026-09-20T12:00');
     await page.getByRole('button', { name: '保存机会' }).evaluate((button) => {
@@ -127,8 +133,11 @@ async function contrastRatio(locator) {
     await page.getByText('已核对本场资格').waitFor();
     await page.getByLabel('公开销售参与状态').selectOption('registered');
     await page.getByRole('button', { name: '返回任务列表' }).click();
-    await page.getByText('7 项准备待核对').waitFor();
-    await page.screenshot({ path: join(artifacts, 'focus.png') });
+    await page
+      .getByRole('region', { name: '下一次官方机会' })
+      .getByText('7 项准备待核对')
+      .waitFor();
+    await page.screenshot({ path: join(artifacts, 'focus.png'), fullPage: true });
     await page.getByRole('button', { name: '先核对准备' }).click();
     await page.getByRole('tab', { name: /开售准备/ }).evaluate((node) => {
       if (node.getAttribute('aria-selected') !== 'true') throw new Error('未进入准备步骤');
@@ -186,6 +195,18 @@ async function contrastRatio(locator) {
     await page.getByRole('heading', { name: '销售日历' }).waitFor();
     await page.getByRole('button', { name: '平台规则' }).click();
     await page.getByRole('heading', { name: '平台规则与能力边界' }).waitFor();
+    await page.getByRole('region', { name: '同类工具能力对照' }).getByText('Bandsintown').waitFor();
+    await page.screenshot({ path: join(artifacts, 'comparison.png'), fullPage: true });
+    assert.equal(
+      await page.evaluate(() =>
+        window.ticket.openKnowledgeSource('unknown').then(
+          () => false,
+          () => true,
+        ),
+      ),
+      true,
+      '未收录的外部资料不得打开',
+    );
     await page.getByRole('button', { name: '设备与会话' }).click();
     await page.getByRole('heading', { name: '设备与网页会话' }).waitFor();
     await page.getByRole('button', { name: '检查连接' }).click();
@@ -215,7 +236,7 @@ async function contrastRatio(locator) {
   try {
     const page = await restarted.firstWindow();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
-    await page.getByRole('button', { name: /测试巡演 · 上海站/ }).click();
+    await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     await page.getByRole('tab', { name: /票档判断/ }).click();
     await page.getByText('已有待完成或已确认订单').waitFor();
     console.log('UI smoke: 重启后结果仍在；截图位于 .test-artifacts');
@@ -227,8 +248,8 @@ async function contrastRatio(locator) {
   try {
     const page = await recovered.firstWindow();
     await page.getByRole('alert').getByText('已从本机备份载入任务', { exact: false }).waitFor();
-    await page.getByRole('button', { name: /测试巡演 · 上海站/ }).waitFor();
-    await page.getByRole('button', { name: /测试巡演 · 上海站/ }).click();
+    await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).waitFor();
+    await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '删除本地任务' }).click();
     await page.getByText('先从一场确定的演出开始').waitFor();

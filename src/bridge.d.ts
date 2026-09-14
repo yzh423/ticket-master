@@ -11,6 +11,7 @@ declare global {
       remove(id: string): Promise<void>;
       openOfficial(platform: PlatformId, url: string): Promise<void>;
       openReference(eventId: string, opportunityId?: string): Promise<void>;
+      openKnowledgeSource(id: string): Promise<void>;
       openInside(eventId: string, opportunityId?: string): Promise<void>;
       clearBrowserData(platform: PlatformId): Promise<void>;
       usbStatus(): Promise<string>;

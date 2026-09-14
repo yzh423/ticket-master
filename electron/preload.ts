@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('ticket', {
     ipcRenderer.invoke('official:open', platform, url),
   openReference: (eventId: string, opportunityId?: string): Promise<void> =>
     ipcRenderer.invoke('reference:open', eventId, opportunityId),
+  openKnowledgeSource: (id: string): Promise<void> => ipcRenderer.invoke('knowledge:open', id),
   openInside: (eventId: string, opportunityId?: string): Promise<void> =>
     ipcRenderer.invoke('official:open-inside', eventId, opportunityId),
   clearBrowserData: (platform: PlatformId): Promise<void> =>

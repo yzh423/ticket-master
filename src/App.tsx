@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { EventForm } from './components/EventForm';
 import { OpportunityForm } from './components/OpportunityForm';
+import { planActions } from '../shared/action-plan';
+import { marketComparisons } from '../shared/market';
 import {
   createEventMutationQueue,
   mergeRuleEdit,
@@ -238,6 +240,7 @@ export default function App() {
     .sort((a, b) =>
       (a.attempt.paymentDeadline ?? '9999').localeCompare(b.attempt.paymentDeadline ?? '9999'),
     );
+  const nextActions = useMemo(() => planActions(events, clock), [events, clock]);
   const focusOrder = upcoming[0]
     ? pendingPaymentAttempts(upcoming[0].event.attempts).length > 0
     : false;
@@ -354,6 +357,13 @@ export default function App() {
       await window.ticket.openReference(eventId, opportunityId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '无法打开规则来源');
+    }
+  }
+  async function openKnowledgeSource(id: string) {
+    try {
+      await window.ticket.openKnowledgeSource(id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法打开资料来源');
     }
   }
   async function downloadWebBackup() {
@@ -641,6 +651,34 @@ export default function App() {
                   </span>
                 </div>
               </div>
+              {nextActions.length > 0 && (
+                <section className="action-board" aria-label="下一步行动">
+                  <div className="section-title action-board-title">
+                    <div>
+                      <span className="eyebrow">NEXT ACTIONS</span>
+                      <h2>下一步，先做这些</h2>
+                    </div>
+                    <small>依据已录入的规则与人工状态；不代表实时库存或排队优势</small>
+                  </div>
+                  <div className="action-grid">
+                    {nextActions.slice(0, 3).map((item) => (
+                      <button
+                        key={item.eventId}
+                        className={`action-card ${item.kind === 'payment' ? 'urgent' : ''}`}
+                        onClick={() => openEvent(item.eventId, item.target)}
+                      >
+                        <span className="action-card-top">
+                          <span>{item.kind === 'payment' ? '优先处理' : '待核对'}</span>
+                          <ArrowRight size={17} />
+                        </span>
+                        <strong>{item.title}</strong>
+                        <span className="action-event">{item.eventTitle}</span>
+                        <small>{item.detail}</small>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
               <div className="section-title list-title">
                 <div>
                   <span className="eyebrow">TRACKED EVENTS</span>
@@ -779,6 +817,44 @@ export default function App() {
                   </p>
                 </div>
               </div>
+              <section className="comparison-section" aria-label="同类工具能力对照">
+                <div className="section-title">
+                  <div>
+                    <span className="eyebrow">CAPABILITY MAP</span>
+                    <h2>与同类工具怎么配合</h2>
+                  </div>
+                </div>
+                <p className="comparison-intro">
+                  原生平台负责售票、候补和交易；发现工具负责新活动提醒。候票台负责把你的固定条件、已核实机会与结果放在一起。
+                </p>
+                <div className="comparison-grid">
+                  {marketComparisons.map((item) => (
+                    <article className="comparison-card" key={item.id}>
+                      <span className="eyebrow">{item.category}</span>
+                      <h3>{item.product}</h3>
+                      <p>
+                        <strong>对方擅长</strong>
+                        {item.strength}
+                      </p>
+                      <p>
+                        <strong>候票台作用</strong>
+                        {item.ourRole}
+                      </p>
+                      <p>
+                        <strong>当前局限</strong>
+                        {item.gap}
+                      </p>
+                      <div className="comparison-tip">{item.recommendation}</div>
+                      <button
+                        className="text-button"
+                        onClick={() => void openKnowledgeSource(item.id)}
+                      >
+                        查看官方资料 <ExternalLink size={15} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
               <div className="guide-list">
                 {guide.map((item) => (
                   <div className="guide-row" key={item.id}>
