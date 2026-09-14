@@ -469,3 +469,247 @@
 :root[data-theme='dark'] .discover-result small {
   color: #a6d7c5;
 }
+
+/* Neutral surfaces keep the event and the official page in focus. Blue marks actions. */
+.discover-page {
+  gap: 22px;
+}
+.discover-hero {
+  background: #f5f7fa;
+  border-color: #e3e8ef;
+  border-radius: 16px;
+  padding: 24px;
+}
+.discover-hero h1 {
+  color: #182333;
+  font-size: clamp(27px, 2.8vw, 35px);
+}
+.discover-hero p {
+  color: #617083;
+}
+.discover-sources button {
+  border-color: #dce4ef;
+  background: #fff;
+  color: #38506b;
+  border-radius: 9px;
+  min-height: 36px;
+}
+.discover-sources button:hover {
+  border-color: #80b8f3;
+  background: #f4f9ff;
+}
+.discover-sources button.selected {
+  background: #e8f3ff;
+  color: #075aa7;
+  border-color: #75b5f5;
+  box-shadow: none;
+}
+.discover-search {
+  border-color: #d9e2ec;
+  box-shadow: 0 5px 18px #27415d0d;
+}
+.discover-search input {
+  color: #1c2b3d;
+}
+.discover-search > svg {
+  color: #6385a9;
+}
+.discover-search button,
+.discover-result button {
+  background: #0a70d4;
+}
+.discover-search button:hover,
+.discover-result button:hover {
+  background: #0659ab;
+}
+.discover-trust {
+  color: #718095;
+}
+.discover-workspace {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-color: #dce3ed;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 30px #2037500c;
+}
+.discover-tabstrip {
+  display: flex;
+  gap: 4px;
+  padding: 9px 11px 0;
+  overflow-x: auto;
+  background: #eef2f7;
+  border-bottom: 1px solid #dce3ed;
+}
+.discover-tabstrip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  min-height: 36px;
+  max-width: 180px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 9px 9px 0 0;
+  background: transparent;
+  color: #607389;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.discover-tabstrip button[aria-selected='true'] {
+  border-color: #dce3ed;
+  border-bottom-color: #fff;
+  background: #fff;
+  color: #145d9f;
+  font-weight: 700;
+}
+.discover-workspace-head {
+  min-height: 57px;
+  padding: 11px 15px;
+  gap: 12px;
+  background: #fff;
+  border-bottom: 1px solid #e8edf3;
+}
+.discover-workspace h2 {
+  color: #1d3044;
+  font-size: 14px;
+}
+.discover-toolbar {
+  max-width: min(78%, 760px);
+}
+.discover-toolbar button {
+  background: transparent;
+  border-color: transparent;
+  color: #536e88;
+  border-radius: 8px;
+}
+.discover-toolbar button:hover:not(:disabled) {
+  background: #edf4fc;
+  color: #0a70d4;
+}
+.discover-toolbar .discover-inspect {
+  background: #e8f3ff;
+  color: #0d67bd;
+  border-color: #cae2fb;
+}
+.discover-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 110px !important;
+  max-width: 290px;
+  min-height: 31px;
+  padding: 0 10px !important;
+  border: 1px solid #e2e9f1;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #526b82 !important;
+}
+.discover-workspace > .discover-domain-warning,
+.discover-workspace > .discover-result,
+.discover-workspace > .discover-footnote {
+  margin: 10px 15px;
+}
+.discover-browser-pane {
+  border: 0;
+  border-radius: 0;
+  height: min(62vh, 650px);
+  min-height: 440px;
+}
+.discover-section-heading h2,
+.discover-prep-grid h3 {
+  color: #1c3045;
+}
+.discover-prep-grid article {
+  border-color: #e3e9f0;
+  border-radius: 13px;
+}
+.discover-prep-icon {
+  background: #e9f3ff;
+  color: #136db9;
+}
+.discover-prep-step {
+  color: #5684ad;
+}
+.discover-prep-grid p {
+  color: #687a8e;
+}
+
+:root[data-theme='dark'] .discover-hero,
+:root[data-theme='dark'] .discover-workspace,
+:root[data-theme='dark'] .discover-prep-grid article {
+  background: #151d28;
+  border-color: #344354;
+}
+:root[data-theme='dark'] .discover-hero h1,
+:root[data-theme='dark'] .discover-workspace h2,
+:root[data-theme='dark'] .discover-section-heading h2,
+:root[data-theme='dark'] .discover-prep-grid h3 {
+  color: #edf3fb;
+}
+:root[data-theme='dark'] .discover-hero p,
+:root[data-theme='dark'] .discover-prep-grid p {
+  color: #a1b2c5;
+}
+:root[data-theme='dark'] .discover-sources button {
+  background: #1c2a3a;
+  border-color: #3c4e60;
+  color: #c6d7ea;
+}
+:root[data-theme='dark'] .discover-sources button.selected {
+  background: #163b60;
+  border-color: #368bda;
+  color: #a9d7ff;
+}
+:root[data-theme='dark'] .discover-search {
+  background: #111c29;
+  border-color: #3a4f64;
+}
+:root[data-theme='dark'] .discover-search input {
+  color: #edf5ff;
+}
+:root[data-theme='dark'] .discover-search button {
+  background: #338de4;
+  color: #fff;
+}
+:root[data-theme='dark'] .discover-tabstrip {
+  background: #101923;
+  border-color: #344354;
+}
+:root[data-theme='dark'] .discover-tabstrip button {
+  color: #a0b4c9;
+}
+:root[data-theme='dark'] .discover-tabstrip button[aria-selected='true'] {
+  background: #1b2938;
+  border-color: #344354;
+  border-bottom-color: #1b2938;
+  color: #b8ddff;
+}
+:root[data-theme='dark'] .discover-workspace-head {
+  background: #1b2938;
+  border-color: #344354;
+}
+:root[data-theme='dark'] .discover-toolbar button {
+  background: transparent;
+  border-color: transparent;
+  color: #b5cadd;
+}
+:root[data-theme='dark'] .discover-toolbar .discover-inspect {
+  background: #204a70;
+  border-color: #356c9b;
+  color: #c8e7ff;
+}
+:root[data-theme='dark'] .discover-location {
+  background: #111c29;
+  border-color: #3a4e61;
+  color: #bfd2e5 !important;
+}
+:root[data-theme='dark'] .discover-browser-pane {
+  background: #0f1721;
+  border: 0;
+}
+:root[data-theme='dark'] .discover-prep-icon {
+  background: #163b60;
+  color: #a9d7ff;
+}

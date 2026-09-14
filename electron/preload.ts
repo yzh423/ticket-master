@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('ticket', {
   discoveryBounds: (bounds: DiscoveryBounds | null): Promise<void> =>
     ipcRenderer.invoke('discovery:bounds', bounds),
   discoveryBack: (): Promise<void> => ipcRenderer.invoke('discovery:back'),
+  discoverySwitch: (platform: PlatformId): Promise<void> =>
+    ipcRenderer.invoke('discovery:switch', platform),
   discoveryForward: (): Promise<void> => ipcRenderer.invoke('discovery:forward'),
   discoveryClose: (): Promise<void> => ipcRenderer.invoke('discovery:close'),
   discoveryExternal: (): Promise<void> => ipcRenderer.invoke('discovery:external'),
@@ -41,6 +43,10 @@ contextBridge.exposeInMainWorld('ticket', {
     ipcRenderer.invoke('browser:clear-data', platform),
   usbStatus: (): Promise<string> => ipcRenderer.invoke('android:status'),
   launchDamai: (): Promise<string> => ipcRenderer.invoke('android:damai'),
+  openOfficialOnAndroid: (platform: PlatformId, url: string): Promise<string> =>
+    ipcRenderer.invoke('android:open-official', platform, url),
+  openDeviceHelp: (kind: 'android' | 'iphone'): Promise<void> =>
+    ipcRenderer.invoke('device:help', kind),
   onChanged: (callback: () => void): (() => void) => {
     const listener = () => callback();
     ipcRenderer.on('events:changed', listener);

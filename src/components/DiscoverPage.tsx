@@ -7,6 +7,7 @@ import {
   Globe2,
   Link2,
   Search,
+  ShieldAlert,
   ShieldCheck,
   Smartphone,
   Users,
@@ -81,7 +82,7 @@ export function DiscoverPage({
       window.removeEventListener('scroll', sync, true);
       void window.ticket.discoveryBounds(null).catch(() => {});
     };
-  }, [web, state?.platform, suspended]);
+  }, [web, Boolean(state), suspended]);
   useEffect(() => {
     if (
       state?.platform === 'damai' &&
@@ -130,16 +131,19 @@ export function DiscoverPage({
   }
   async function openAccount() {
     try {
-      await window.ticket.openOfficial('damai', 'https://passport.damai.cn/accountinfo/myinfo');
+      setPlatform('damai');
+      await window.ticket.discover('damai', 'https://passport.damai.cn/accountinfo/myinfo');
+      browserPane.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (error) {
       setMessage(messageOf(error, '无法打开大麦账户入口'));
     }
   }
   async function openPhone() {
     try {
-      setDeviceMessage(await window.ticket.launchDamai());
+      const target = state?.platform === platform && state.trustedDomain ? state.url : source.home;
+      setDeviceMessage(await window.ticket.openOfficialOnAndroid(platform, target));
     } catch (error) {
-      setDeviceMessage(messageOf(error, '无法打开手机大麦'));
+      setDeviceMessage(messageOf(error, '无法向手机发送官方链接'));
     }
   }
 
@@ -149,7 +153,7 @@ export function DiscoverPage({
         <div className="discover-hero-copy">
           <span className="eyebrow">FIND YOUR EVENT / 多平台发现</span>
           <h1>搜索你想看的演出</h1>
-          <p>选一个官方平台，输入关键词或粘贴该平台活动链接。桌面版在下方同一页面显示官网。</p>
+          <p>选择渠道，搜索活动。官网在工作区以标签页打开；登录与购票仍由官网完成。</p>
           <div className="discover-sources" role="group" aria-label="选择搜索平台">
             {searchSources.map((item) => (
               <button
@@ -161,6 +165,12 @@ export function DiscoverPage({
                   setPlatform(item.platform);
                   setMessage('');
                   setPreview(null);
+                  if (state?.tabs.some((tab) => tab.platform === item.platform))
+                    void window.ticket
+                      .discoverySwitch(item.platform)
+                      .then(() =>
+                        browserPane.current?.scrollIntoView({ behavior: 'auto', block: 'center' }),
+                      );
                 }}
               >
                 <strong>{item.label}</strong>
@@ -200,6 +210,33 @@ export function DiscoverPage({
       </section>
 
       <section className="discover-workspace" aria-label="站内官方网页">
+        {state && !web && (
+          <div className="discover-tabstrip" role="tablist" aria-label="已打开的官方网页">
+            {state.tabs.map((tab) => (
+              <button
+                key={tab.platform}
+                type="button"
+                role="tab"
+                aria-selected={state.platform === tab.platform}
+                title={
+                  tab.url || searchSources.find((item) => item.platform === tab.platform)?.label
+                }
+                onClick={() => {
+                  setPlatform(tab.platform);
+                  void window.ticket
+                    .discoverySwitch(tab.platform)
+                    .then(() =>
+                      browserPane.current?.scrollIntoView({ behavior: 'auto', block: 'center' }),
+                    );
+                }}
+              >
+                <Globe2 size={14} />
+                {searchSources.find((item) => item.platform === tab.platform)?.label ??
+                  tab.platform}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="discover-workspace-head">
           <div>
             <span className="eyebrow">OFFICIAL BROWSER</span>
@@ -221,12 +258,13 @@ export function DiscoverPage({
               >
                 <ArrowRight size={16} />
               </button>
-              <span title={state.url}>
+              <span className="discover-location" title={state.url}>
+                {state.trustedDomain ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}{' '}
                 {state.hostname || '加载中'}
                 {state.loading ? ' · 加载中' : ''}
               </span>
               <button
-                title="在系统浏览器打开当前页"
+                title="在系统浏览器继续当前页"
                 aria-label="在系统浏览器打开当前页"
                 onClick={() =>
                   void window.ticket.discoveryExternal().catch((error) => setMessage(String(error)))
@@ -249,12 +287,13 @@ export function DiscoverPage({
         </div>
         {state && !state.trustedDomain && (
           <p className="discover-domain-warning" role="alert">
-            当前页面已离开所选平台官网，请先核对地址与登录要求。
+            当前是 {state.hostname}
+            ，可能是平台登录或支付跳转。请核对网址；候票台不会从此页面读取活动信息。
           </p>
         )}
         {state?.error && (
           <p className="discover-domain-warning" role="alert">
-            {state.error}
+            {state.error} 如官网限制内置浏览器，可使用工具栏的“在系统浏览器继续当前页”。
           </p>
         )}
         {preview && (
@@ -309,7 +348,7 @@ export function DiscoverPage({
           </p>
           {platform === 'damai' && (
             <button className="text-button" onClick={() => void openAccount()}>
-              大麦账号页 <ExternalLink size={15} />
+              在站内打开大麦账号页 <ArrowRight size={15} />
             </button>
           )}
         </article>
@@ -320,11 +359,9 @@ export function DiscoverPage({
           <span className="discover-prep-step">ATTENDEES</span>
           <h3>核对实名观演人</h3>
           <p>在所选平台按具体活动规则登记或选择观演人，并核对人数、证件及购票资格。</p>
-          {platform === 'damai' && (
-            <button className="text-button" onClick={() => void openPhone()} disabled={web}>
-              尝试打开手机大麦 <Smartphone size={15} />
-            </button>
-          )}
+          <button className="text-button" onClick={() => void openPhone()} disabled={web}>
+            发送当前官方链接到 Android <Smartphone size={15} />
+          </button>
           {deviceMessage && <small role="status">{deviceMessage}</small>}
         </article>
       </div>

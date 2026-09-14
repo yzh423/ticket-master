@@ -8,7 +8,7 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 import type { BrowserState, BrowserTarget } from '../shared/browser';
-import { officialUrl } from '../shared/rules';
+import { officialUrl, referenceUrl } from '../shared/rules';
 import {
   damaiDiscoveryUrl,
   parseDamaiPublicDetail,
@@ -21,6 +21,7 @@ export class OfficialBrowserManager {
   private view: WebContentsView | null = null;
   private target: BrowserTarget | null = null;
   private error = '';
+  private failedUrl = '';
 
   constructor() {
     ipcMain.handle('browser:state', (event) => this.forShell(event.sender, () => this.state()));
@@ -41,8 +42,9 @@ export class OfficialBrowserManager {
     );
     ipcMain.handle('browser:external', (event) =>
       this.forShell(event.sender, async () => {
-        if (this.target && officialUrl(this.target.platform, this.target.url))
-          await shell.openExternal(this.target.url);
+        const url = this.state().url;
+        if (!referenceUrl(url)) throw new Error('当前网页不是安全的 HTTPS 地址');
+        await shell.openExternal(url);
       }),
     );
   }
@@ -57,7 +59,9 @@ export class OfficialBrowserManager {
     if (!this.target) throw new Error('官方网页尚未打开');
     const contents = this.view?.webContents;
     const loaded = contents?.getURL();
-    const url = loaded && loaded !== 'about:blank' ? loaded : this.target.url;
+    const url =
+      (this.error && this.failedUrl) ||
+      (loaded && loaded !== 'about:blank' ? loaded : this.target.url);
     let hostname = '';
     try {
       hostname = new URL(url).hostname;
@@ -172,6 +176,7 @@ export class OfficialBrowserManager {
     }
     this.target = target;
     this.error = '';
+    this.failedUrl = '';
     const browserSession = session.fromPartition(`persist:ticket-${target.platform}`);
     browserSession.setPermissionRequestHandler((_contents, _permission, callback) =>
       callback(false),
@@ -220,38 +225,24 @@ export class OfficialBrowserManager {
         this.publish();
       }
     });
-    content.setWindowOpenHandler(({ url }) => {
-      if (!officialUrl(target.platform, url)) {
+    content.setWindowOpenHandler(({ url, disposition, postBody }) => {
+      if (postBody || !referenceUrl(url) || !['default', 'foreground-tab'].includes(disposition)) {
         this.error =
-          '页面请求打开新窗口。为保护当前会话，未自动打开跨站弹窗；如影响结账，请改用系统浏览器或官方 App。';
+          '页面请求打开需要表单提交、非 HTTPS 或后台弹窗，当前工作区无法安全延续；请改用系统浏览器或官方 App。';
         this.publish();
         return { action: 'deny' };
       }
-      return {
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          parent: this.window ?? undefined,
-          webPreferences: {
-            session: browserSession,
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: true,
-          },
-        },
-      };
-    });
-    content.on('did-create-window', (child) => {
-      child.setMenu(null);
-      child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-      child.webContents.on('will-navigate', (event, navigationUrl) => {
-        if (!officialUrl(target.platform, navigationUrl)) event.preventDefault();
+      void content.loadURL(url).catch((error: unknown) => {
+        if (String(error).includes('ERR_ABORTED')) return;
+        this.error = error instanceof Error ? error.message : '登录页无法加载';
+        this.failedUrl = url;
+        this.publish();
       });
-      child.webContents.on('will-redirect', (event, redirectUrl) => {
-        if (!officialUrl(target.platform, redirectUrl)) event.preventDefault();
-      });
+      return { action: 'deny' };
     });
     content.on('did-start-loading', () => {
       this.error = '';
+      this.failedUrl = '';
       this.publish();
     });
     content.on('did-stop-loading', () => this.publish());
@@ -260,6 +251,7 @@ export class OfficialBrowserManager {
     content.on('did-fail-load', (_event, code, description, url, mainFrame) => {
       if (!mainFrame || code === -3) return;
       this.error = `页面加载失败（${code}）：${description}。可使用系统浏览器打开原入口。`;
+      this.failedUrl = url;
       this.publish();
     });
     const hostWindow = this.window;
@@ -278,6 +270,7 @@ export class OfficialBrowserManager {
     void hostWindow.loadFile(join(__dirname, '../../dist/browser.html'));
     void content.loadURL(target.url).catch((error: unknown) => {
       this.error = error instanceof Error ? error.message : '官方页面无法加载';
+      this.failedUrl = target.url;
       this.publish();
     });
   }

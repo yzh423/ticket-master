@@ -84,6 +84,11 @@ async function contrastRatio(locator) {
       (await page.evaluate(() => window.ticket.discoveryState())).platform,
       'ticketmaster',
     );
+    assert.deepEqual(
+      (await page.evaluate(() => window.ticket.discoveryState())).tabs.map((tab) => tab.platform),
+      ['damai', 'ticketmaster'],
+      '两个平台应该保留各自的网页标签',
+    );
     assert.equal(
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
       1,
@@ -93,12 +98,19 @@ async function contrastRatio(locator) {
     let inlineBounds;
     for (let i = 0; i < 20; i++) {
       inlineBounds = await app.evaluate(({ BrowserWindow }) =>
-        BrowserWindow.getAllWindows()[0].contentView.children[0].getBounds(),
+        BrowserWindow.getAllWindows()[0].contentView.children.at(-1).getBounds(),
       );
       if (inlineBounds.width > 200 && inlineBounds.height > 200) break;
       await page.waitForTimeout(50);
     }
     assert.ok(inlineBounds.width > 200 && inlineBounds.height > 200, '切换平台后官网区域应可见');
+    await page.getByRole('tab', { name: '大麦' }).click();
+    assert.equal((await page.evaluate(() => window.ticket.discoveryState())).platform, 'damai');
+    await page.getByRole('tab', { name: 'Ticketmaster' }).click();
+    assert.equal(
+      (await page.evaluate(() => window.ticket.discoveryState())).platform,
+      'ticketmaster',
+    );
     await assert.rejects(
       page.evaluate(() => window.ticket.clearBrowserData('ticketmaster')),
       /请先关闭该平台的网页工作区/,
@@ -113,6 +125,7 @@ async function contrastRatio(locator) {
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
       1,
     );
+    await page.getByRole('button', { name: '关闭站内网页' }).click();
     await page.getByRole('button', { name: '关闭站内网页' }).click();
     await page.getByRole('button', { name: '我的任务' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');

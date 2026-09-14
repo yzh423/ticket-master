@@ -19,6 +19,7 @@ declare global {
       discoveryState(): Promise<DiscoveryViewState | null>;
       discoveryBounds(bounds: DiscoveryBounds | null): Promise<void>;
       discoveryBack(): Promise<void>;
+      discoverySwitch(platform: PlatformId): Promise<void>;
       discoveryForward(): Promise<void>;
       discoveryClose(): Promise<void>;
       discoveryExternal(): Promise<void>;
@@ -28,6 +29,8 @@ declare global {
       clearBrowserData(platform: PlatformId): Promise<void>;
       usbStatus(): Promise<string>;
       launchDamai(): Promise<string>;
+      openOfficialOnAndroid(platform: PlatformId, url: string): Promise<string>;
+      openDeviceHelp(kind: 'android' | 'iphone'): Promise<void>;
       exportBackup?(): Promise<string>;
       importBackup?(raw: string): Promise<number>;
       onChanged(callback: () => void): () => void;

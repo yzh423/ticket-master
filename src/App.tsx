@@ -964,8 +964,8 @@ export default function App() {
                   <span className="eyebrow">ANDROID BRIDGE</span>
                   <h1>设备与网页会话</h1>
                   <p>
-                    通过 USB 检查设备，并在大麦 App 已安装时尝试唤起
-                    App。活动选择和结账全程在手机上人工完成。
+                    Android 手机可经 USB 发送官方活动链接；iPhone 请使用 Apple Devices
+                    检查连接。活动选择和结账在手机上完成。
                   </p>
                 </div>
               </div>
@@ -995,11 +995,29 @@ export default function App() {
               <div className="guide-callout">
                 <Info size={20} />
                 <p>
-                  需要 Android Platform Tools 的 adb、手机 USB 调试授权及大麦 App。没有 adb
-                  时，仍可在 Windows
-                  端管理任务、打开已验证的网址。这里不读取手机屏幕，也不模拟点击。
+                  vivo、OPPO、华为、小米和三星等 Android 手机使用相同的 ADB 连接方式，但 USB 调试和
+                  Windows 驱动设置因机型而异。iPhone 不支持 ADB，也不能通过此按钮远程启动购票
+                  App。这里不读取屏幕或模拟点击。
                 </p>
               </div>
+              <div className="button-row device-help-actions">
+                <button
+                  className="button ghost"
+                  onClick={() => void window.ticket.openDeviceHelp('android')}
+                >
+                  Google 官方 Platform Tools <ExternalLink size={16} />
+                </button>
+                <button
+                  className="button ghost"
+                  onClick={() => void window.ticket.openDeviceHelp('iphone')}
+                >
+                  Apple 官方连接说明 <ExternalLink size={16} />
+                </button>
+              </div>
+              <p className="help-note">
+                下载 Google Platform Tools 后，把压缩包内的 <code>platform-tools</code> 文件夹解压到
+                <code>%LOCALAPPDATA%\ticket-window-tools\</code>，再点击“检查连接”。
+              </p>
               <div className="device-panel session-panel">
                 <div className="device-illustration">
                   <ShieldCheck size={40} />

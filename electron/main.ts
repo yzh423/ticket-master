@@ -9,12 +9,11 @@ import {
   type WebContents,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { execFile } from 'node:child_process';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { TicketStore } from './store';
 import { OfficialBrowserManager } from './official-browser';
 import { InlineDiscovery, type DiscoveryBounds } from './inline-discovery';
+import { launchDamai, openOfficialOnAndroid, usbStatus } from './device';
 import { resolveBrowserTarget } from '../shared/browser';
 import { marketSource } from '../shared/market';
 import {
@@ -28,7 +27,6 @@ import {
 } from '../shared/rules';
 import { platformLabels, saleLabels, type EventRecord, type PlatformId } from '../shared/model';
 
-const run = promisify(execFile);
 if (!app.isPackaged && process.env.TICKET_WINDOW_TEST_DATA_DIR)
   app.setPath('userData', process.env.TICKET_WINDOW_TEST_DATA_DIR);
 const singleInstance = app.requestSingleInstanceLock();
@@ -37,39 +35,6 @@ let store: TicketStore;
 let window: BrowserWindow | null = null;
 let officialBrowser: OfficialBrowserManager;
 let inlineDiscovery: InlineDiscovery;
-const adb = async (args: string[]): Promise<string> => {
-  const result = await run('adb', args, { timeout: 7000, windowsHide: true });
-  return result.stdout;
-};
-
-async function connectedAndroid(): Promise<string | null> {
-  const output = await adb(['devices']);
-  const line = output.split(/\r?\n/).find((row) => /^\S+\s+device$/.test(row.trim()));
-  return line?.trim().split(/\s+/)[0] ?? null;
-}
-
-async function usbStatus(): Promise<string> {
-  try {
-    const output = await adb(['devices']);
-    const lines = output
-      .split(/\r?\n/)
-      .filter((row) => /^\S+\s+(device|unauthorized|offline)$/.test(row.trim()));
-    if (!lines.length)
-      return '没有检测到 Android 设备。请连接 USB、安装 Android Platform Tools 并开启 USB 调试。';
-    return lines
-      .map((line) =>
-        line
-          .trim()
-          .replace(/\s+device$/, ' · 已授权')
-          .replace(/\s+unauthorized$/, ' · 等待手机授权')
-          .replace(/\s+offline$/, ' · 离线'),
-      )
-      .join('\n');
-  } catch {
-    return '未找到 adb。安装 Android Platform Tools 后重启应用；这不影响 Windows 端任务管理。';
-  }
-}
-
 function notifyDue(): void {
   if (!Notification.isSupported()) return;
   const now = Date.now();
@@ -242,6 +207,10 @@ if (singleInstance)
         forMain(event.sender);
         inlineDiscovery.back();
       });
+      ipcMain.handle('discovery:switch', (event, platform: PlatformId) => {
+        forMain(event.sender);
+        inlineDiscovery.switch(platform);
+      });
       ipcMain.handle('discovery:forward', (event) => {
         forMain(event.sender);
         inlineDiscovery.forward();
@@ -289,16 +258,23 @@ if (singleInstance)
       ipcMain.handle('android:damai', async (event) => {
         forMain(event.sender);
         try {
-          const serial = await connectedAndroid();
-          if (!serial) return '没有已授权的 Android 设备。';
-          const installed = await adb(['-s', serial, 'shell', 'pm', 'path', 'cn.damai']);
-          if (!installed.includes('package:'))
-            return '未检测到大麦 App；请自行从官方渠道安装并在手机上打开。';
-          await adb(['-s', serial, 'shell', 'monkey', '-p', 'cn.damai', '1']);
-          return '已尝试打开大麦 App。请在手机上人工核对活动、场次及订单。';
-        } catch {
-          return '无法确认手机上的大麦 App。请人工打开，USB 功能不影响其他任务。';
+          return await launchDamai();
+        } catch (error) {
+          return error instanceof Error ? error.message : '无法确认手机上的大麦 App';
         }
+      });
+      ipcMain.handle('android:open-official', async (event, platform: PlatformId, url: string) => {
+        forMain(event.sender);
+        return openOfficialOnAndroid(platform, url);
+      });
+      ipcMain.handle('device:help', async (event, kind: 'android' | 'iphone') => {
+        forMain(event.sender);
+        const urls = {
+          android: 'https://developer.android.com/tools/releases/platform-tools',
+          iphone: 'https://support.apple.com/en-us/108643',
+        };
+        if (!Object.hasOwn(urls, kind)) throw new Error('设备帮助入口无效');
+        await shell.openExternal(urls[kind]);
       });
       createWindow();
       if (window) inlineDiscovery = new InlineDiscovery(window);

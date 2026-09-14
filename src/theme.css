@@ -1,16 +1,16 @@
 :root {
   color-scheme: dark;
-  --bg: #0a111a;
-  --nav: #0d1722;
-  --surface: #13202c;
-  --surface-soft: #192835;
-  --surface-strong: #1d3040;
-  --border: #2b3b49;
-  --text: #ebf4f5;
-  --muted: #a2b5bd;
-  --quiet: #829ba5;
-  --accent: #66e4ce;
-  --accent-dark: #154842;
+  --bg: #0e141d;
+  --nav: #111a25;
+  --surface: #192532;
+  --surface-soft: #1e2d3c;
+  --surface-strong: #243648;
+  --border: #344759;
+  --text: #edf4fb;
+  --muted: #afc1d3;
+  --quiet: #8fa6bb;
+  --accent: #79bdff;
+  --accent-dark: #173b60;
   --amber: #ffcb83;
   --danger: #f8a896;
   font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
@@ -48,17 +48,17 @@ textarea:focus-visible {
 }
 .brand-mark {
   background: var(--accent-dark);
-  border: 1px solid #2f8178;
+  border: 1px solid #3675ae;
   color: var(--accent);
   transform: none;
-  box-shadow: 0 0 18px #35e0c11a;
+  box-shadow: none;
 }
 .brand strong {
   font-size: 20px;
   color: #f2fbfb;
 }
 .brand small {
-  color: #77aaa9;
+  color: #92b5d8;
 }
 .nav button {
   color: #9eb5be;
@@ -66,37 +66,37 @@ textarea:focus-visible {
   min-height: 45px;
 }
 .nav button:hover {
-  background: #192d39;
+  background: #203247;
   color: #fff;
 }
 .nav button.active {
-  background: #17383d;
-  color: #b5f9e8;
-  border: 1px solid #327067;
+  background: #183b5d;
+  color: #c5e5ff;
+  border: 1px solid #326b9d;
 }
 .side-note {
-  background: #13252e;
-  border: 1px solid #28535a;
-  color: #b6e2dd;
+  background: #172b42;
+  border: 1px solid #315c86;
+  color: #c4ddf2;
 }
 .side-note small,
 .side-foot {
-  color: #8caaad;
+  color: #9ab3c9;
 }
 .note-dot {
   background: var(--accent);
   box-shadow: 0 0 9px var(--accent);
 }
 .topbar {
-  background: #0c1520;
+  background: #121c27;
   border-color: var(--border);
   color: #92aab4;
   height: 65px;
 }
 .local-badge {
-  background: #14382f;
-  color: #9be7cb;
-  border: 1px solid #2d6557;
+  background: #183850;
+  color: #b6daf4;
+  border: 1px solid #386687;
   font-size: 11px;
 }
 .content {
@@ -104,7 +104,7 @@ textarea:focus-visible {
   padding: 38px 42px 90px;
 }
 .eyebrow {
-  color: #6bdcc7;
+  color: #86c5ff;
   font-size: 10px;
   letter-spacing: 0.2em;
 }
@@ -129,18 +129,18 @@ textarea:focus-visible {
 }
 .button.primary {
   background: var(--accent);
-  color: #0d2527;
+  color: #0c253a;
 }
 .button.primary:hover {
-  background: #a1f1df;
+  background: #a6d5ff;
 }
 .button.secondary {
-  background: #1b4947;
-  color: #b3f3e7;
-  border: 1px solid #34776d;
+  background: #1d4568;
+  color: #cceaff;
+  border: 1px solid #3c709e;
 }
 .button.secondary:hover {
-  background: #245e58;
+  background: #285b83;
 }
 .button.ghost {
   background: #172632;

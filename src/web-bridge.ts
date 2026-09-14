@@ -95,6 +95,7 @@ export function installWebBridge(): void {
     discoveryState: async () => null,
     discoveryBounds: async () => {},
     discoveryBack: async () => {},
+    discoverySwitch: async () => {},
     discoveryForward: async () => {},
     discoveryClose: async () => {},
     discoveryExternal: async () => {},
@@ -108,6 +109,15 @@ export function installWebBridge(): void {
     },
     usbStatus: async () => '浏览器版无法读取 USB 设备。请使用 Windows 桌面版。',
     launchDamai: async () => '浏览器版无法唤起 Android App。请使用 Windows 桌面版。',
+    openOfficialOnAndroid: async () =>
+      '浏览器版无法经 USB 向 Android 手机发送链接。请使用 Windows 桌面版。',
+    openDeviceHelp: async (kind) => {
+      location.assign(
+        kind === 'android'
+          ? 'https://developer.android.com/tools/releases/platform-tools'
+          : 'https://support.apple.com/en-us/108643',
+      );
+    },
     exportBackup: async () =>
       JSON.stringify(
         { format: backupFormat, exportedAt: new Date().toISOString(), events: read() },

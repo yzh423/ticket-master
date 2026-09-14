@@ -37,6 +37,7 @@ export type DiscoveryViewState = {
   canGoBack: boolean;
   canGoForward: boolean;
   error: string;
+  tabs: { platform: PlatformId; url: string }[];
 };
 
 export function parseStructuredPublicEvent(

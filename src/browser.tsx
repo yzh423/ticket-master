@@ -82,7 +82,7 @@ function BrowserShell() {
           </div>
         </div>
         <div className="browser-location" title={state?.url}>
-          <LockKeyhole size={15} />
+          {state?.trustedDomain ? <LockKeyhole size={15} /> : <ShieldAlert size={15} />}
           <span>{state?.hostname || '等待页面加载'}</span>
           {state?.loading && <i className="loading-dot" />}
         </div>

@@ -9,38 +9,58 @@ import {
   type StructuredPublicFields,
 } from '../shared/discovery';
 import { resolveSearch } from '../shared/search-sources';
-import { officialUrl } from '../shared/rules';
+import { officialUrl, referenceUrl } from '../shared/rules';
 
 export type DiscoveryBounds = { x: number; y: number; width: number; height: number };
 
 export class InlineDiscovery {
   private view: WebContentsView | null = null;
+  private readonly views = new Map<PlatformId, WebContentsView>();
   private platform: PlatformId | null = null;
   private targetUrl = '';
   private error = '';
+  private failedUrl = '';
+  private bounds: DiscoveryBounds | null = null;
 
   constructor(private readonly window: BrowserWindow) {}
 
   isOpenFor(platform: PlatformId): boolean {
-    return this.view !== null && this.platform === platform;
+    return this.views.has(platform);
   }
 
   close(): void {
     if (this.view) {
       this.window.contentView.removeChildView(this.view);
       if (!this.view.webContents.isDestroyed()) this.view.webContents.close();
+      if (this.platform) this.views.delete(this.platform);
     }
     this.view = null;
     this.platform = null;
     this.targetUrl = '';
     this.error = '';
+    this.failedUrl = '';
+    const previous = [...this.views.keys()].at(-1);
+    if (previous) this.switch(previous);
+    else this.publish();
+  }
+
+  switch(platform: PlatformId): void {
+    const next = this.views.get(platform);
+    if (!next) throw new Error('该平台尚未打开网页标签');
+    this.view?.setVisible(false);
+    this.view = next;
+    this.platform = platform;
+    this.targetUrl = next.webContents.getURL();
+    this.error = '';
+    this.failedUrl = '';
+    this.setBounds(this.bounds);
     this.publish();
   }
 
   state(): DiscoveryViewState | null {
     if (!this.view || !this.platform) return null;
     const contents = this.view.webContents;
-    const url = contents.getURL() || this.targetUrl;
+    const url = (this.error && this.failedUrl) || contents.getURL() || this.targetUrl;
     let hostname = '';
     try {
       hostname = new URL(url).hostname;
@@ -56,6 +76,10 @@ export class InlineDiscovery {
       canGoBack: contents.navigationHistory.canGoBack(),
       canGoForward: contents.navigationHistory.canGoForward(),
       error: this.error,
+      tabs: [...this.views].map(([platform, view]) => ({
+        platform,
+        url: view.webContents.getURL(),
+      })),
     };
   }
 
@@ -65,7 +89,10 @@ export class InlineDiscovery {
 
   open(platform: PlatformId, input: string): void {
     const { url } = resolveSearch(platform, input);
-    if (this.platform !== platform || !this.view) this.createView(platform);
+    if (this.platform !== platform || !this.view) {
+      if (this.views.has(platform)) this.switch(platform);
+      else this.createView(platform);
+    }
     if (!this.view) throw new Error('无法建立内置搜索区域');
     if (this.targetUrl === url && this.view.webContents.getURL() === url) {
       this.publish();
@@ -73,19 +100,24 @@ export class InlineDiscovery {
     }
     this.targetUrl = url;
     this.error = '';
+    this.failedUrl = '';
     this.publish();
-    void this.view.webContents.loadURL(url).catch((error: unknown) => {
-      if (this.targetUrl !== url || String(error).includes('ERR_ABORTED')) return;
+    const view = this.view;
+    void view.webContents.loadURL(url).catch((error: unknown) => {
+      if (this.view !== view || this.targetUrl !== url || String(error).includes('ERR_ABORTED'))
+        return;
       this.error = error instanceof Error ? error.message : '官网页面无法加载';
+      this.failedUrl = url;
       this.publish();
     });
   }
 
   private createView(platform: PlatformId): void {
-    if (this.view) this.close();
+    this.view?.setVisible(false);
     this.platform = platform;
     this.targetUrl = '';
     this.error = '';
+    this.failedUrl = '';
     const browserSession = session.fromPartition(`persist:ticket-${platform}`);
     browserSession.setPermissionRequestHandler((_contents, _permission, callback) =>
       callback(false),
@@ -101,16 +133,31 @@ export class InlineDiscovery {
       },
     });
     this.view = view;
+    this.views.set(platform, view);
     view.setBounds({ x: 0, y: 0, width: 1, height: 1 });
     view.setVisible(false);
     this.window.contentView.addChildView(view);
     const contents = view.webContents;
-    contents.setWindowOpenHandler(({ url }) => {
-      if (this.platform === platform && officialUrl(platform, url)) {
-        void contents.loadURL(url).catch(() => {});
+    contents.setWindowOpenHandler(({ url, disposition, postBody }) => {
+      if (
+        !postBody &&
+        referenceUrl(url) &&
+        (disposition === 'default' || disposition === 'foreground-tab')
+      ) {
+        if (this.view === view) this.targetUrl = url;
+        void contents.loadURL(url).catch((error: unknown) => {
+          if (this.view !== view || String(error).includes('ERR_ABORTED')) return;
+          this.error = error instanceof Error ? error.message : '登录页无法加载';
+          this.failedUrl = url;
+          this.publish();
+        });
       } else {
-        this.error = '网站尝试打开另一个窗口，已阻止。请核对当前入口。';
-        this.publish();
+        if (this.view === view) {
+          this.error = postBody
+            ? '网站的登录或支付弹窗需要提交表单，当前标签无法安全延续该请求；请使用系统浏览器或官方 App。'
+            : '网站请求打开新窗口或非 HTTPS 页面。可在系统浏览器继续该平台流程。';
+          this.publish();
+        }
       }
       return { action: 'deny' };
     });
@@ -125,21 +172,27 @@ export class InlineDiscovery {
       if (!url.startsWith('https://')) event.preventDefault();
     });
     contents.on('did-start-loading', () => {
+      if (this.view !== view) return;
       this.error = '';
+      this.failedUrl = '';
       this.publish();
     });
     contents.on('did-stop-loading', () => this.publish());
     contents.on('did-navigate', () => this.publish());
     contents.on('did-navigate-in-page', () => this.publish());
-    contents.on('did-fail-load', (_event, code, description, _url, mainFrame) => {
+    contents.on('did-fail-load', (_event, code, description, failedUrl, mainFrame) => {
       if (!mainFrame || code === -3) return;
-      this.error = `页面加载失败（${code}）：${description}`;
+      if (this.view !== view) return;
+      this.error = `页面加载失败（${code}）：${description}。可在系统浏览器或官方 App 继续。`;
+      this.failedUrl = failedUrl;
       this.publish();
     });
+    this.setBounds(this.bounds);
     this.publish();
   }
 
   setBounds(bounds: DiscoveryBounds | null): void {
+    this.bounds = bounds;
     if (!this.view) return;
     if (!bounds) {
       this.view.setVisible(false);
@@ -172,8 +225,7 @@ export class InlineDiscovery {
 
   async external(): Promise<void> {
     const state = this.state();
-    if (!state || !this.platform || !officialUrl(this.platform, state.url))
-      throw new Error('当前网页不是所选平台的官方入口');
+    if (!state || !referenceUrl(state.url)) throw new Error('当前网页不是安全的 HTTPS 地址');
     await shell.openExternal(state.url);
   }
 
