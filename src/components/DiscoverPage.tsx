@@ -13,7 +13,11 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import type { DiscoveredEvent, DiscoveryViewState } from '../../shared/discovery';
+import {
+  mayContainEventDetail,
+  type DiscoveredEvent,
+  type DiscoveryViewState,
+} from '../../shared/discovery';
 import {
   platformLabels,
   purchaseChannelLabels,
@@ -33,16 +37,7 @@ const groups: { id: 'all' | SearchGroup; label: string }[] = [
   { id: 'attractions', label: '景点体验' },
   { id: 'resale', label: '转售市场' },
 ];
-const featuredPlatforms = new Set<PlatformId>([
-  'damai',
-  'maoyan',
-  'showstart',
-  'hkticketing',
-  'urbtix',
-  'ticketmaster',
-  'axs',
-  'klook',
-]);
+const featuredPlatforms = new Set<PlatformId>(['damai', 'maoyan', 'ticketmaster', 'klook']);
 
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error
@@ -79,6 +74,7 @@ export function DiscoverPage({
   const [preview, setPreview] = useState<DiscoveredEvent | null>(null);
   const browserPane = useRef<HTMLDivElement>(null);
   const lastUrl = useRef('');
+  const autoInspectedUrl = useRef('');
   const source = searchSources.find((item) => item.platform === platform) ?? {
     platform,
     label: platformLabels[platform],
@@ -150,6 +146,38 @@ export function DiscoverPage({
     )
       void inspect();
   }, [state?.url, state?.loading, state?.platform]);
+  useEffect(() => {
+    if (
+      web ||
+      !state?.url ||
+      state.platform === 'damai' ||
+      !state.trustedDomain ||
+      !mayContainEventDetail(state.url) ||
+      state.loading ||
+      state.error ||
+      activeTask ||
+      autoInspectedUrl.current === state.url
+    )
+      return;
+    const url = state.url;
+    autoInspectedUrl.current = url;
+    void window.ticket
+      .discoveryInspect()
+      .then((found) => {
+        if (lastUrl.current === url) setPreview(found);
+      })
+      .catch(() => {
+        // Ordinary home and search pages may not contain an Event marker.
+      });
+  }, [
+    web,
+    state?.url,
+    state?.platform,
+    state?.trustedDomain,
+    state?.loading,
+    state?.error,
+    activeTask?.id,
+  ]);
 
   async function inspect() {
     setInspecting(true);
@@ -250,8 +278,37 @@ export function DiscoverPage({
           <p>
             {activeTask
               ? '保持当前官方会话，按任务条件核对场次、票档与实际总价。'
-              : '选择渠道，搜索活动。官网在工作区以标签页打开；登录与购票仍由官网完成。'}
+              : '输入活动名或官方链接，找到项目后直接选择场次和票档。'}
           </p>
+          {!activeTask && (
+            <div className="discover-search-context">当前平台：{source.label} · 可在下方切换</div>
+          )}
+          <form className="discover-search" onSubmit={(event) => void search(event)}>
+            <Search size={20} aria-hidden="true" />
+            <input
+              aria-label="演出关键词或官方活动链接"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={
+                source.mode === 'keyword'
+                  ? '歌手、活动名，或粘贴官方链接'
+                  : '粘贴官方链接；也可留空打开官网'
+              }
+              autoFocus
+            />
+            <button type="submit" disabled={busy}>
+              {busy
+                ? '打开中…'
+                : /^https?:/i.test(input.trim())
+                  ? '打开活动'
+                  : !input.trim()
+                    ? '打开官网'
+                    : source.mode === 'keyword'
+                      ? '搜索演出'
+                      : '打开官网'}{' '}
+              <ArrowRight size={16} />
+            </button>
+          </form>
           {!activeTask && (
             <div className="discover-groups" role="group" aria-label="筛选平台类别">
               {groups.map((item) => (
@@ -313,32 +370,6 @@ export function DiscoverPage({
               )}
             </div>
           )}
-          <form className="discover-search" onSubmit={(event) => void search(event)}>
-            <Search size={20} aria-hidden="true" />
-            <input
-              aria-label="演出关键词或官方活动链接"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={
-                source.mode === 'keyword'
-                  ? '歌手、活动名，或粘贴官方链接'
-                  : '粘贴官方链接；也可留空打开官网'
-              }
-              autoFocus
-            />
-            <button type="submit" disabled={busy}>
-              {busy
-                ? '打开中…'
-                : /^https?:/i.test(input.trim())
-                  ? '打开活动'
-                  : !input.trim()
-                    ? '打开官网'
-                    : source.mode === 'keyword'
-                      ? '搜索演出'
-                      : '打开官网'}{' '}
-              <ArrowRight size={16} />
-            </button>
-          </form>
           {message && (
             <p className="discover-message" role="status">
               {message}
@@ -464,9 +495,7 @@ export function DiscoverPage({
             ) : (
               <button onClick={() => onDiscovered(preview)}>
                 <Check size={16} />{' '}
-                {preview.ticketOptions?.length
-                  ? '查看全部场次并选择票档'
-                  : '查看全部场次与票档信息'}
+                {preview.ticketOptions?.length ? '选择场次和票档' : '查看官方购票入口'}
               </button>
             )}
           </div>

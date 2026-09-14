@@ -14,6 +14,26 @@ import { parseLocalInstant } from '../../shared/rules';
 import { Temporal } from '@js-temporal/polyfill';
 
 const today = () => Temporal.Now.plainDateISO().toString();
+const knownTimeZones: Partial<Record<PlatformId, string>> = {
+  damai: 'Asia/Shanghai',
+  maoyan: 'Asia/Shanghai',
+  piaoxingqiu: 'Asia/Shanghai',
+  showstart: 'Asia/Shanghai',
+  fenwandao: 'Asia/Shanghai',
+  hkticketing: 'Asia/Hong_Kong',
+  cityline: 'Asia/Hong_Kong',
+  urbtix: 'Asia/Hong_Kong',
+};
+const knownCurrencies: Partial<Record<PlatformId, string>> = {
+  damai: 'CNY',
+  maoyan: 'CNY',
+  piaoxingqiu: 'CNY',
+  showstart: 'CNY',
+  fenwandao: 'CNY',
+  hkticketing: 'HKD',
+  cityline: 'HKD',
+  urbtix: 'HKD',
+};
 export function EventForm({
   initial,
   seed,
@@ -27,9 +47,7 @@ export function EventForm({
   onLaunchApp: () => Promise<string>;
   onClose: () => void;
 }) {
-  const quickChoice = Boolean(
-    !initial && seed?.platform === 'damai' && seed.title && seed.sourceUrl && seed.sessions?.length,
-  );
+  const quickChoice = Boolean(!initial && seed?.title && seed.sourceUrl && seed.sessions?.length);
   const [showAdvanced, setShowAdvanced] = useState(!quickChoice);
   const [title, setTitle] = useState(initial?.title ?? seed?.title ?? '');
   const [platform, setPlatform] = useState<PlatformId>(
@@ -39,12 +57,24 @@ export function EventForm({
   const [sessionLocal, setSessionLocal] = useState(
     initial?.sessionLocal ?? seed?.sessionLocal ?? '',
   );
-  const sessions = initial?.sessions ?? seed?.sessions ?? [];
+  const candidateSessions = initial?.sessions ?? seed?.sessions ?? [];
+  const [selectedSessionLocals, setSelectedSessionLocals] = useState<string[]>(
+    initial?.sessions?.map((session) => session.local) ?? (initial ? [initial.sessionLocal] : []),
+  );
+  const sessions = candidateSessions.filter((session) =>
+    selectedSessionLocals.includes(session.local),
+  );
+  const needsTimeZoneChoice = Boolean(
+    quickChoice && seed?.ticketOptions?.length && !knownTimeZones[seed.platform],
+  );
+  const needsCurrencyChoice = Boolean(
+    quickChoice && seed?.ticketOptions?.length && !seed.currency && !knownCurrencies[seed.platform],
+  );
   const [timeZone, setTimeZone] = useState(
-    initial?.timeZone ?? (seed && seed.platform !== 'damai' ? '' : 'Asia/Shanghai'),
+    initial?.timeZone ?? (seed ? (knownTimeZones[seed.platform] ?? '') : 'Asia/Shanghai'),
   );
   const [currency, setCurrency] = useState(
-    initial?.currency ?? seed?.currency ?? (seed && seed.platform !== 'damai' ? '' : 'CNY'),
+    initial?.currency ?? (seed ? seed.currency || knownCurrencies[seed.platform] || '' : 'CNY'),
   );
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
   const purchaseLimit = Math.min(
@@ -82,6 +112,12 @@ export function EventForm({
     setTiers(next);
   }
 
+  function toggleSession(local: string) {
+    setSelectedSessionLocals((current) =>
+      current.includes(local) ? current.filter((value) => value !== local) : [...current, local],
+    );
+  }
+
   function changeTierPrice(index: number, input: string) {
     const next = tiers.map((tier, position) =>
       position === index ? { ...tier, unitPrice: input === '' ? null : Number(input) } : tier,
@@ -96,6 +132,7 @@ export function EventForm({
     setError('');
     setBusy(true);
     try {
+      if (candidateSessions.length && !sessions.length) throw new Error('请先选择至少一个演出场次');
       const firstSession = sessions[0]?.local ?? sessionLocal;
       const at = parseLocalInstant(firstSession, timeZone);
       const lastAt = parseLocalInstant(sessions.at(-1)?.local ?? firstSession, timeZone);
@@ -174,17 +211,12 @@ export function EventForm({
           <div className="import-summary" role="status">
             <Info size={18} />
             <div>
-              <strong>已从{platformLabels[seed.platform]}公开页面带入活动信息</strong>
+              <strong>{seed.title}</strong>
               <p>
-                页面日期：{seed.dateHint || '未显示明确日期'}。
-                {seed.appOnly ? '该项目提示在大麦 App 下单。' : '购票渠道仍需核对。'}
-                {seed.sessions?.length ? ` 发现 ${seed.sessions.length} 个候选场次。` : ''}
-                {seed.ticketOptions?.length
-                  ? ` 发现 ${seed.ticketOptions.length} 个明确标价的票档。`
-                  : ''}
-                {availableTickets.length
-                  ? '请从下方核对场次，选择票档和人数。'
-                  : '本页没有可核实的逐档票价，请在原平台查看。'}
+                {platformLabels[seed.platform]} · {seed.venue || '场馆待核对'} ·{' '}
+                {seed.sessions?.length || 0} 个明确场次
+                {seed.appOnly ? ' · 官方 App 购票' : ''}
+                {!availableTickets.length ? ' · 逐档票价未公开' : ''}
               </p>
             </div>
           </div>
@@ -193,23 +225,37 @@ export function EventForm({
           onSubmit={submit}
           className={`form-grid${quickChoice ? ' quick-form' : ''}${showAdvanced ? ' show-advanced' : ''}`}
         >
-          {sessions.length ? (
+          {candidateSessions.length ? (
             <fieldset className="wide candidate-picker">
               <legend>
-                {quickChoice && !availableTickets.length ? '官方页面列出' : '已纳入全部'}{' '}
-                {sessions.length} 个演出场次
+                {quickChoice && availableTickets.length
+                  ? '① 选择想去的场次'
+                  : quickChoice && !availableTickets.length
+                    ? '官方页面列出的场次'
+                    : '演出场次'}
               </legend>
               <div className="candidate-list" role="list" aria-label="已确认演出场次">
-                {sessions.map((session) => (
-                  <span className="candidate-choice" role="listitem" key={session.local}>
-                    {session.label}
+                {candidateSessions.map((session) => (
+                  <span role="listitem" key={session.local}>
+                    {quickChoice && !availableTickets.length ? (
+                      <span className="candidate-choice is-static">{session.label}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`candidate-choice${selectedSessionLocals.includes(session.local) ? ' is-selected' : ''}`}
+                        aria-pressed={selectedSessionLocals.includes(session.local)}
+                        onClick={() => toggleSession(session.local)}
+                      >
+                        {session.label}
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
               <small>
                 {quickChoice && !availableTickets.length
                   ? '这是公开页面列出的日期与时间，进入原生 App 后请再次核对场次与票档。'
-                  : '任务包含当前官方页面明确列出的全部日期与时间。页面更新时请重新核对；同一票档在不同场次是否有售，以手机 App 为准。'}
+                  : '可选择多个可接受的场次。票档在各场次是否有售，以官方购票页为准。'}
               </small>
             </fieldset>
           ) : null}
@@ -221,7 +267,7 @@ export function EventForm({
           ) : null}
           {!initial && availableTickets.length ? (
             <fieldset className="wide candidate-picker">
-              <legend>选择可接受票档</legend>
+              <legend>② 选择可接受票档</legend>
               <div className="candidate-list">
                 {availableTickets.map((option) => {
                   const selectedIndex = tiers.findIndex(
@@ -257,7 +303,7 @@ export function EventForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="例如：某某巡演 · 上海站"
-              autoFocus
+              autoFocus={!quickChoice}
             />
           </label>
           <label>
@@ -278,7 +324,7 @@ export function EventForm({
               placeholder="上海 · 某体育馆"
             />
           </label>
-          {!sessions.length && (
+          {!candidateSessions.length && (
             <label>
               固定演出场次（当地时间）
               <input
@@ -289,7 +335,7 @@ export function EventForm({
               />
             </label>
           )}
-          <label>
+          <label className={needsTimeZoneChoice ? 'quick-field' : undefined}>
             活动所在地 IANA 时区
             <input
               required
@@ -307,7 +353,7 @@ export function EventForm({
           </label>
           {(!quickChoice || availableTickets.length > 0) && (
             <label className="quick-field">
-              固定人数
+              ③ 固定人数
               {seed && !initial ? (
                 <select
                   aria-label="固定人数"
@@ -332,15 +378,26 @@ export function EventForm({
               )}
             </label>
           )}
-          <label>
+          <label className={needsCurrencyChoice ? 'quick-field' : undefined}>
             币种
-            <input
-              required
-              maxLength={3}
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              placeholder="CNY"
-            />
+            {needsCurrencyChoice ? (
+              <select value={currency} required onChange={(e) => setCurrency(e.target.value)}>
+                <option value="">请选择币种</option>
+                {['CNY', 'HKD', 'USD', 'EUR', 'GBP', 'JPY', 'KRW', 'CAD', 'AUD'].map((code) => (
+                  <option value={code} key={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                required
+                maxLength={3}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                placeholder="CNY"
+              />
+            )}
           </label>
           <label>
             购买负责人
@@ -477,7 +534,9 @@ export function EventForm({
               <small className="purchase-handoff-note" role="status">
                 {appLaunchMessage ||
                   (availableTickets.length
-                    ? '打开官方入口；票档、场次、实名和付款请在原平台确认。'
+                    ? sessions.length
+                      ? '已自动填好活动资料；官方平台内仍需确认实名、票档和付款。'
+                      : '先选择至少一个想去的场次。'
                     : '公开页面没有逐档票价；请在原生 App 查看并购票。')}
               </small>
             )}
@@ -491,7 +550,10 @@ export function EventForm({
                 onClick={() => {
                   startAfterSave.current = false;
                 }}
-                disabled={busy || (quickChoice && !tiers.some((tier) => tier.label.trim()))}
+                disabled={
+                  busy ||
+                  (quickChoice && (!sessions.length || !tiers.some((tier) => tier.label.trim())))
+                }
               >
                 {busy ? '保存中…' : '保存任务'}
               </button>
@@ -503,7 +565,7 @@ export function EventForm({
                 onClick={() => {
                   startAfterSave.current = true;
                 }}
-                disabled={busy || !tiers.some((tier) => tier.label.trim())}
+                disabled={busy || !sessions.length || !tiers.some((tier) => tier.label.trim())}
               >
                 {busy ? '打开中…' : '开始购票'}
               </button>

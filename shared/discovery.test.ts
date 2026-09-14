@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { damaiDiscoveryUrl, parseDamaiPublicDetail, parseStructuredPublicEvent } from './discovery';
+import {
+  damaiDiscoveryUrl,
+  mayContainEventDetail,
+  parseDamaiPublicDetail,
+  parseStructuredPublicEvent,
+} from './discovery';
+
+describe('自动读取公开活动信息', () => {
+  it('只尝试详情页，不在首页、搜索、排队或支付页读取', () => {
+    expect(mayContainEventDetail('https://www.ticketmaster.com/')).toBe(false);
+    expect(mayContainEventDetail('https://www.ticketmaster.com/search?q=concert')).toBe(false);
+    expect(mayContainEventDetail('https://www.ticketmaster.com/queue/123')).toBe(false);
+    expect(mayContainEventDetail('https://www.ticketmaster.com/checkout/123')).toBe(false);
+    expect(mayContainEventDetail('https://www.ticketmaster.com/event/123')).toBe(true);
+    expect(mayContainEventDetail('https://hkt.hkticketing.com/#/event/123')).toBe(true);
+  });
+});
 
 describe('大麦发现入口', () => {
   it('把关键词编码为官方搜索网址，也允许直接使用官方项目链接', () => {

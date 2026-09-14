@@ -33,6 +33,12 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+.discover-search-context {
+  color: #486b8c;
+  font-size: 12px;
+  font-weight: 650;
+  margin: 12px 0 7px;
+}
 .discover-groups button {
   border: 1px solid #dce4ef;
   border-radius: 999px;

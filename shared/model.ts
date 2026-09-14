@@ -78,7 +78,7 @@ export type EventRecord = {
   platform: PlatformId;
   venue: string;
   sessionLocal: string;
-  /** All confirmed performances. Older records have only sessionLocal. */
+  /** Performances selected for this task. Older records have only sessionLocal. */
   sessions?: PerformanceSession[];
   timeZone: string;
   sessionAt: string;

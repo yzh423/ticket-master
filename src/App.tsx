@@ -1394,7 +1394,7 @@ function EventDetail({
         </div>
       </div>
       {event.sessions?.length ? (
-        <div className="saved-sessions" role="list" aria-label="已纳入的全部演出场次">
+        <div className="saved-sessions" role="list" aria-label="已选择的演出场次">
           {event.sessions.map((session) => (
             <span role="listitem" key={session.local}>
               {session.label}

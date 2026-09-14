@@ -52,6 +52,18 @@ export type DiscoveryViewState = {
   tabs: { platform: PlatformId; url: string }[];
 };
 
+/** Only detail-like official pages are eligible for a silent metadata read. */
+export function mayContainEventDetail(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    const path = `${url.pathname}${url.hash}`.toLowerCase();
+    if (path === '/' || path === '') return false;
+    return !/(?:search|category|checkout|payment|orders?|queue|waiting|login|signin)/.test(path);
+  } catch {
+    return false;
+  }
+}
+
 export function parseStructuredPublicEvent(
   platform: PlatformId,
   url: string,

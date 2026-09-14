@@ -184,6 +184,13 @@ async function contrastRatio(locator) {
       2,
     );
     assert.equal(await page.getByLabel('固定演出场次（当地时间）').count(), 0);
+    assert.equal(await page.getByRole('button', { name: '开始购票' }).isDisabled(), true);
+    const sessionOptions = page.getByRole('list', { name: '已确认演出场次' }).getByRole('button');
+    await sessionOptions.nth(0).click();
+    await sessionOptions.nth(1).click();
+    await sessionOptions.nth(0).click();
+    assert.equal(await sessionOptions.nth(0).getAttribute('aria-pressed'), 'false');
+    assert.equal(await sessionOptions.nth(1).getAttribute('aria-pressed'), 'true');
     await page.getByRole('button', { name: /内场.*1,?280/ }).click();
     await page.getByRole('button', { name: /看台.*580/ }).click();
     await page.getByLabel('固定人数').selectOption('2');
@@ -202,9 +209,45 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '保存任务' }).click();
     await page.getByRole('heading', { name: '自动识别测试巡演' }).waitFor();
     assert.equal(
-      await page.getByRole('list', { name: '已纳入的全部演出场次' }).getByRole('listitem').count(),
-      2,
+      await page.getByRole('list', { name: '已选择的演出场次' }).getByRole('listitem').count(),
+      1,
     );
+    assert.equal(
+      await page
+        .getByRole('list', { name: '已选择的演出场次' })
+        .getByRole('listitem')
+        .first()
+        .textContent(),
+      '2026-10-02 周五 19:30',
+    );
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除本地任务' }).click();
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
+        platform: 'ticketmaster',
+        title: '国际场馆官方活动测试',
+        dateHint: '2026-10-11 20:00',
+        sessionLocal: '2026-10-11T20:00',
+        sessions: [{ local: '2026-10-11T20:00', label: '2026-10-11 20:00' }],
+        ticketOptions: [{ label: 'Section A', unitPrice: 120 }],
+        priceRange: '',
+        currency: '',
+        venue: '测试场馆',
+        appOnly: false,
+        ruleNote: '',
+        eventUrl: 'https://www.ticketmaster.com/',
+        sourceUrl: 'https://www.ticketmaster.com/',
+      });
+    });
+    await page.getByLabel('活动所在地 IANA 时区').fill('America/New_York');
+    await page.getByLabel('币种').selectOption('USD');
+    await page.getByRole('list', { name: '已确认演出场次' }).getByRole('button').click();
+    await page.getByRole('button', { name: /Section A.*120/ }).click();
+    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('heading', { name: '国际场馆官方活动测试' }).waitFor();
+    const [internationalTask] = await page.evaluate(() => window.ticket.list());
+    assert.equal(internationalTask.timeZone, 'America/New_York');
+    assert.equal(internationalTask.currency, 'USD');
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '删除本地任务' }).click();
     await app.evaluate(({ BrowserWindow }) => {
@@ -242,6 +285,34 @@ async function contrastRatio(locator) {
     await page.getByRole('dialog').getByRole('button', { name: '关闭' }).click();
     await app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
+        platform: 'hkticketing',
+        title: '香港官方活动测试',
+        dateHint: '2026-10-10 20:00',
+        sessionLocal: '2026-10-10T20:00',
+        sessions: [{ local: '2026-10-10T20:00', label: '2026-10-10 20:00' }],
+        ticketOptions: [{ label: '标准票', unitPrice: 880 }],
+        priceRange: '',
+        currency: 'HKD',
+        venue: '测试场馆',
+        appOnly: false,
+        ruleNote: '',
+        eventUrl: 'https://hkt.hkticketing.com/',
+        sourceUrl: 'https://hkt.hkticketing.com/',
+      });
+    });
+    assert.equal(await page.getByLabel('活动所在地 IANA 时区').isVisible(), false);
+    assert.equal(await page.getByLabel('币种').isVisible(), false);
+    await page.getByRole('list', { name: '已确认演出场次' }).getByRole('button').click();
+    await page.getByRole('button', { name: /标准票.*880/ }).click();
+    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('heading', { name: '香港官方活动测试' }).waitFor();
+    const [hongKongTask] = await page.evaluate(() => window.ticket.list());
+    assert.equal(hongKongTask.timeZone, 'Asia/Hong_Kong');
+    assert.equal(hongKongTask.currency, 'HKD');
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除本地任务' }).click();
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
         platform: 'damai',
         title: '直接打开官网的测试项目',
         dateHint: '2026.10.01',
@@ -257,6 +328,7 @@ async function contrastRatio(locator) {
         sourceUrl: 'https://www.damai.cn/',
       });
     });
+    await page.getByRole('list', { name: '已确认演出场次' }).getByRole('button').click();
     await page.getByRole('button', { name: /看台.*580/ }).click();
     await page.getByRole('button', { name: '开始购票' }).click();
     await page

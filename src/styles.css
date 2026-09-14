@@ -1072,6 +1072,7 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1080,16 +1081,13 @@ p {
   font-size: 12px;
   cursor: pointer;
 }
-.candidate-choice:has(input:checked),
+.candidate-choice.is-selected,
 .candidate-ticket.is-selected {
   border-color: var(--accent);
   background: var(--accent-dark);
 }
-.candidate-choice input {
-  width: auto;
-  min-height: 0;
-  margin: 0;
-  accent-color: var(--accent);
+.candidate-choice.is-static {
+  cursor: default;
 }
 .candidate-ticket strong {
   color: var(--accent);
@@ -1116,6 +1114,11 @@ p {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+.quick-form .candidate-picker small {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .form-grid.quick-form:not(.show-advanced) > label:not(.quick-field),
 .form-grid.quick-form:not(.show-advanced) > .tier-editor {
