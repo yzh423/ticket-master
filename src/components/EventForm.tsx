@@ -23,7 +23,7 @@ export function EventForm({
 }: {
   initial?: EventRecord;
   seed?: DiscoveredEvent;
-  onSave: (event: EventRecord) => Promise<void>;
+  onSave: (event: EventRecord, startNow?: boolean) => Promise<void>;
   onClose: () => void;
 }) {
   const quickChoice = Boolean(
@@ -50,8 +50,6 @@ export function EventForm({
     20,
     Math.max(1, Number(seed?.ruleNote.match(/每笔订单最多购买\s*(\d{1,2})\s*张/)?.[1]) || 20),
   );
-  const [budget, setBudget] = useState<number | ''>(initial?.budget ?? (seed ? '' : 1000));
-  const [budgetExtra, setBudgetExtra] = useState<0 | 10 | 20 | null>(seed && !initial ? 10 : null);
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
   const [tiers, setTiers] = useState<Tier[]>(
     initial?.tiers ?? (seed?.ticketOptions?.length ? [] : [{ label: '', unitPrice: null }]),
@@ -71,14 +69,7 @@ export function EventForm({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
-
-  function suggestedBudget(chosen: Tier[], count: number, extra: 0 | 10 | 20): number | '' {
-    const prices = chosen
-      .map((tier) => tier.unitPrice)
-      .filter((price): price is number => price !== null);
-    if (!prices.length) return '';
-    return Math.ceil((Math.round(Math.max(...prices) * 100) * count * (100 + extra)) / 100) / 100;
-  }
+  const startAfterSave = useRef(false);
 
   function selectTicket(option: Tier) {
     const exists = tiers.some(
@@ -90,7 +81,6 @@ export function EventForm({
         ? [...tiers, option]
         : tiers;
     setTiers(next);
-    if (budgetExtra !== null) setBudget(suggestedBudget(next, quantity, budgetExtra));
   }
 
   function changeTierPrice(index: number, input: string) {
@@ -98,7 +88,6 @@ export function EventForm({
       position === index ? { ...tier, unitPrice: input === '' ? null : Number(input) } : tier,
     );
     setTiers(next);
-    if (budgetExtra !== null) setBudget(suggestedBudget(next, quantity, budgetExtra));
   }
 
   async function submit(e: FormEvent) {
@@ -112,35 +101,38 @@ export function EventForm({
       const at = parseLocalInstant(firstSession, timeZone);
       const lastAt = parseLocalInstant(sessions.at(-1)?.local ?? firstSession, timeZone);
       const now = new Date().toISOString();
-      await onSave({
-        id: initial?.id ?? crypto.randomUUID(),
-        title: title.trim(),
-        platform,
-        venue: venue.trim(),
-        sessionLocal: firstSession,
-        sessions: sessions.length ? sessions : undefined,
-        timeZone,
-        sessionAt: at,
-        currency: currency.trim().toUpperCase(),
-        quantity,
-        budget: Number(budget),
-        owner: owner.trim(),
-        tiers: tiers.map((t) => ({ label: t.label.trim(), unitPrice: t.unitPrice })),
-        eventUrl: eventUrl.trim(),
-        purchaseChannel,
-        sourceUrl: sourceUrl.trim(),
-        verifiedAt,
-        ruleNote: ruleNote.trim(),
-        opportunities: initial?.opportunities ?? [],
-        checklist: initial?.checklist ?? defaultChecklist(),
-        attempts: initial?.attempts ?? [],
-        followUntil:
-          !initial || initial.followUntil === initial.sessionAt || initial.followUntil > lastAt
-            ? lastAt
-            : initial.followUntil,
-        createdAt: initial?.createdAt ?? now,
-        updatedAt: now,
-      });
+      await onSave(
+        {
+          id: initial?.id ?? crypto.randomUUID(),
+          title: title.trim(),
+          platform,
+          venue: venue.trim(),
+          sessionLocal: firstSession,
+          sessions: sessions.length ? sessions : undefined,
+          timeZone,
+          sessionAt: at,
+          currency: currency.trim().toUpperCase(),
+          quantity,
+          budget: null,
+          owner: owner.trim(),
+          tiers: tiers.map((t) => ({ label: t.label.trim(), unitPrice: t.unitPrice })),
+          eventUrl: eventUrl.trim(),
+          purchaseChannel,
+          sourceUrl: sourceUrl.trim(),
+          verifiedAt,
+          ruleNote: ruleNote.trim(),
+          opportunities: initial?.opportunities ?? [],
+          checklist: initial?.checklist ?? defaultChecklist(),
+          attempts: initial?.attempts ?? [],
+          followUntil:
+            !initial || initial.followUntil === initial.sessionAt || initial.followUntil > lastAt
+              ? lastAt
+              : initial.followUntil,
+          createdAt: initial?.createdAt ?? now,
+          updatedAt: now,
+        },
+        startAfterSave.current,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败，请检查输入');
     } finally {
@@ -183,7 +175,7 @@ export function EventForm({
                 {seed.ticketOptions?.length
                   ? ` 发现 ${seed.ticketOptions.length} 个明确标价的票档。`
                   : ''}
-                请从下方选择并核对场次、人数、票档与总预算。
+                请从下方核对场次，选择票档和人数。
               </p>
             </div>
           </div>
@@ -244,7 +236,6 @@ export function EventForm({
                       }
                       setAvailableTickets(found);
                       setTiers([]);
-                      setBudget('');
                       setTierImportError('');
                       setPhoneTierExpanded(false);
                     }}
@@ -362,11 +353,7 @@ export function EventForm({
               <select
                 aria-label="固定人数"
                 value={quantity}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  setQuantity(next);
-                  if (budgetExtra !== null) setBudget(suggestedBudget(tiers, next, budgetExtra));
-                }}
+                onChange={(e) => setQuantity(Number(e.target.value))}
               >
                 {Array.from({ length: purchaseLimit }, (_, index) => index + 1).map((count) => (
                   <option value={count} key={count}>
@@ -385,47 +372,6 @@ export function EventForm({
               />
             )}
           </label>
-          <label className="quick-field">
-            含费用的总预算
-            <input
-              required
-              type="number"
-              min="1"
-              step="0.01"
-              value={budget}
-              readOnly={quickChoice && !showAdvanced}
-              placeholder="选择票档后自动计算"
-              onChange={(e) => {
-                setBudgetExtra(null);
-                setBudget(e.target.value === '' ? '' : Number(e.target.value));
-              }}
-            />
-          </label>
-          {!initial &&
-          (availableTickets.length > 0 || tiers.some((tier) => tier.unitPrice !== null)) ? (
-            <div className="wide budget-picks">
-              <strong>按已选票档快速设置总预算</strong>
-              {[0, 10, 20].map((extra) => (
-                <button
-                  key={extra}
-                  type="button"
-                  className={`candidate-ticket${budgetExtra === extra ? ' is-selected' : ''}`}
-                  disabled={!tiers.length || !/^[A-Z]{3}$/.test(currency)}
-                  onClick={() => {
-                    const choice = extra as 0 | 10 | 20;
-                    setBudgetExtra(choice);
-                    setBudget(suggestedBudget(tiers, quantity, choice));
-                  }}
-                >
-                  {extra === 0 ? '票面总价' : `票面总价 +${extra}%`}
-                </button>
-              ))}
-              <small>
-                已选票档的最高单价 ×
-                人数，再加所选余量。费用余量只是你的预算上限，不代表平台实际收费；最终总价仍以官方结算页为准。
-              </small>
-            </div>
-          ) : null}
           <label>
             币种
             <input
@@ -580,9 +526,14 @@ export function EventForm({
             </p>
           )}
           <div className="form-actions wide">
-            {quickChoice && (!tiers.length || budget === '') && (
+            {quickChoice && (
+              <small className="purchase-handoff-note">
+                打开官方入口；票档、场次、实名和付款请在原平台确认。
+              </small>
+            )}
+            {quickChoice && !tiers.some((tier) => tier.label.trim()) && (
               <small role="status">
-                请先从本场官方页面或手机 App 获取明确票档并选择，预算会随人数和票档自动生成。
+                请先从本场官方页面或手机 App 获取票档并选择，再前往官方购票入口。
               </small>
             )}
             <button type="button" className="button ghost" onClick={onClose}>
@@ -590,11 +541,26 @@ export function EventForm({
             </button>
             <button
               type="submit"
-              className="button primary"
-              disabled={busy || (quickChoice && (!tiers.length || budget === ''))}
+              className={quickChoice ? 'button ghost' : 'button primary'}
+              onClick={() => {
+                startAfterSave.current = false;
+              }}
+              disabled={busy || (quickChoice && !tiers.some((tier) => tier.label.trim()))}
             >
               {busy ? '保存中…' : '保存任务'}
             </button>
+            {quickChoice && (
+              <button
+                type="submit"
+                className="button primary"
+                onClick={() => {
+                  startAfterSave.current = true;
+                }}
+                disabled={busy || !tiers.some((tier) => tier.label.trim())}
+              >
+                {busy ? '打开中…' : '开始购票'}
+              </button>
+            )}
           </div>
         </form>
       </section>

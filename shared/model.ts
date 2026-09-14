@@ -84,7 +84,8 @@ export type EventRecord = {
   sessionAt: string;
   currency: string;
   quantity: number;
-  budget: number;
+  /** Optional legacy spending cap. New quick-choice tasks leave this unset. */
+  budget: number | null;
   owner: string;
   tiers: Tier[];
   eventUrl: string;

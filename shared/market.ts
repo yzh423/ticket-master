@@ -4,7 +4,7 @@ export const marketComparisons = [
     category: '演出发现',
     product: 'Bandsintown',
     strength: '关注艺人后可收到新演出、预售和开售提醒。',
-    ourRole: '把已经确认的不同售票渠道、人数和预算放进同一任务。',
+    ourRole: '把已经确认的不同售票渠道、人数和可接受票档放进同一任务。',
     gap: '尚不能自动发现你没有录入的新演出。',
     recommendation: '在艺人和原平台开启原生提醒，再把确定的销售时间录入候票台。',
     source: 'https://www.artist.bandsintown.com/overview',

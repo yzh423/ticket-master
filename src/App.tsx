@@ -274,6 +274,7 @@ export default function App() {
   }
 
   function openEvent(id: string, tab: DetailTab = 'sales') {
+    setMobileActionMessage('');
     setDetailStartTab(tab);
     setSelectedId(id);
     setPage('dashboard');
@@ -324,7 +325,36 @@ export default function App() {
     }
     void window.ticket.setTheme(next);
   }
-  async function save(event: EventRecord) {
+  async function startOfficialPurchase(event: EventRecord) {
+    try {
+      if (effectivePurchaseChannel(event) === 'app_required') {
+        openEvent(event.id, 'tickets');
+        const message =
+          event.platform === 'damai' && !web
+            ? await launchDamaiForTask()
+            : '请在手机手动打开该场指定的官方 App，并在原平台核对票档和人数。';
+        setMobileActionMessage(message);
+        return;
+      }
+      if (!event.eventUrl) throw new Error('当前任务没有可用的官方网页入口');
+      if (web) {
+        await window.ticket.openInside(event.id);
+        return;
+      }
+      await window.ticket.discover(event.platform, event.eventUrl);
+      setActiveTaskId(event.id);
+      setActiveOpportunityId(null);
+      setSelectedId(null);
+      setPage('discover');
+    } catch (cause) {
+      openEvent(event.id, 'tickets');
+      setError(
+        `任务已保存，但打开官方入口失败：${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    }
+  }
+
+  async function save(event: EventRecord, startNow = false) {
     if (events.some((item) => item.id === event.id)) {
       pendingMutations.current++;
       try {
@@ -333,6 +363,7 @@ export default function App() {
         setEditing(null);
         setDiscoverySeed(null);
         setSaleEditor(null);
+        if (startNow) await startOfficialPurchase(next);
       } finally {
         pendingMutations.current--;
         if (pendingMutations.current === 0) await reload();
@@ -344,6 +375,7 @@ export default function App() {
       setEditing(null);
       setDiscoverySeed(null);
       setSaleEditor(null);
+      if (startNow) await startOfficialPurchase(next);
     }
   }
   async function mutate(update: (current: EventRecord) => EventRecord): Promise<boolean> {
@@ -588,6 +620,7 @@ export default function App() {
               onOpen={openOfficial}
               onOpenInside={openInside}
               onLaunchDamai={launchDamaiForTask}
+              phoneLaunchMessage={mobileActionMessage}
               onReference={openReference}
             />
           ) : page === 'discover' ? (
@@ -618,7 +651,7 @@ export default function App() {
                 <div>
                   <span className="eyebrow">YOUR TICKETING DESK</span>
                   <h1>把每次机会，准备成一次有效尝试。</h1>
-                  <p>记录固定场次和预算，提前检查资格与官方销售阶段。排队和下单仍在原平台完成。</p>
+                  <p>选好票档和人数，提前检查资格与官方销售阶段。排队和下单仍在原平台完成。</p>
                 </div>
                 <div className="button-row">
                   <button className="button secondary" onClick={() => setPage('discover')}>
@@ -861,9 +894,7 @@ export default function App() {
                     <Ticket size={27} />
                   </div>
                   <h3>{events.length ? '没有匹配的购票任务' : '先从一场确定的演出开始'}</h3>
-                  <p>
-                    填入场次、人数、预算和官方规则来源，再补全销售时间。这里不会展示未经核实的库存。
-                  </p>
+                  <p>填入场次、人数和官方规则来源，再补全销售时间。这里不会展示未经核实的库存。</p>
                   {!events.length && (
                     <button className="button secondary" onClick={() => setEditing(true)}>
                       <Plus size={17} /> 创建第一个任务
@@ -1197,6 +1228,7 @@ function EventDetail({
   onOpen,
   onOpenInside,
   onLaunchDamai,
+  phoneLaunchMessage,
   onReference,
 }: {
   event: EventRecord;
@@ -1211,6 +1243,7 @@ function EventDetail({
   onOpen: (event: EventRecord, url?: string) => Promise<void>;
   onOpenInside: (eventId: string, opportunityId?: string) => Promise<void>;
   onLaunchDamai: () => Promise<string>;
+  phoneLaunchMessage: string;
   onReference: (eventId: string, opportunityId?: string) => Promise<void>;
 }) {
   const [availability, setAvailability] = useState<Availability[]>(
@@ -1242,7 +1275,7 @@ function EventDetail({
     event.tiers,
     event.tiers.map((_, i) => availability[i] ?? 'unknown'),
     event.quantity,
-    event.budget,
+    null,
   );
   const eventChannel = effectivePurchaseChannel(event);
   const tierSignature = JSON.stringify(event.tiers);
@@ -1370,21 +1403,15 @@ function EventDetail({
           {event.platform !== 'damai' ? '该平台尚无实测的手机启动入口，请在手机手动打开。' : ''}
         </p>
       )}
-      {phoneStatus && (
+      {(phoneStatus || phoneLaunchMessage) && (
         <p className="channel-notice" role="status">
-          {phoneStatus}
+          {phoneStatus || phoneLaunchMessage}
         </p>
       )}
       <div className="metric-bar">
         <div>
           <span>固定人数</span>
           <strong>{event.quantity} 人</strong>
-        </div>
-        <div>
-          <span>总预算上限</span>
-          <strong>
-            {event.budget.toLocaleString()} {event.currency}
-          </strong>
         </div>
         <div>
           <span>购买负责人</span>
@@ -1631,7 +1658,7 @@ function EventDetail({
                         : decision.kind === 'check_total'
                           ? '先核对实际总额'
                           : decision.kind === 'over_budget'
-                            ? '当前可选票超出预算'
+                            ? '当前票档需核对实际价格'
                             : '暂无可买票档'}
                 </strong>
                 <p>{orderExists ? '优先完成已有订单，不继续提交新单。' : decision.note}</p>

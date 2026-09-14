@@ -9,7 +9,6 @@ export type EventBrowserTarget = {
   platform: PlatformId;
   url: string;
   quantity: number;
-  budget: number;
   currency: string;
   tiers: Tier[];
   opportunity: string | null;
@@ -57,7 +56,6 @@ export function resolveBrowserTarget(
     platform: event.platform,
     url,
     quantity: event.quantity,
-    budget: event.budget,
     currency: event.currency,
     tiers: event.tiers,
     opportunity: sale ? saleLabels[sale.type] : null,

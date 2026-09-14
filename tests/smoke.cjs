@@ -187,10 +187,9 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: /内场.*1,?280/ }).click();
     await page.getByRole('button', { name: /看台.*580/ }).click();
     await page.getByLabel('固定人数').selectOption('2');
-    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '2816');
-    await page.getByRole('button', { name: '票面总价 +20%' }).click();
+    assert.equal(await page.getByLabel('含费用的总预算').count(), 0);
+    assert.equal(await page.getByRole('button', { name: '开始购票' }).isEnabled(), true);
     await page.getByLabel('固定人数').selectOption('3');
-    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '4608');
     await page.getByLabel('固定人数').selectOption('2');
     await page.screenshot({ path: join(artifacts, 'discovered-options.png') });
     await page.getByRole('button', { name: '查看识别详情与手动修改' }).click();
@@ -200,7 +199,6 @@ async function contrastRatio(locator) {
     );
     assert.equal(await page.getByLabel('票档 1 名称').inputValue(), '内场');
     assert.equal(await page.getByLabel('票档 2 名称').inputValue(), '看台');
-    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '3072');
     await page.getByRole('button', { name: '保存任务' }).click();
     await page.getByRole('heading', { name: '自动识别测试巡演' }).waitFor();
     assert.equal(
@@ -237,10 +235,38 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '生成票档选项' }).click();
     await page.getByRole('button', { name: /内场区.*1,?680/ }).click();
     await page.getByLabel('固定人数').selectOption('2');
-    assert.equal(await page.getByLabel('含费用的总预算').inputValue(), '3696');
     await page.screenshot({ path: join(artifacts, 'phone-tiers.png') });
     await page.getByRole('button', { name: '保存任务' }).click();
     await page.getByRole('heading', { name: '仅显示价格范围的项目' }).waitFor();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除本地任务' }).click();
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
+        platform: 'damai',
+        title: '直接打开官网的测试项目',
+        dateHint: '2026.10.01',
+        sessionLocal: '',
+        sessions: [{ local: '2026-10-01T19:30', label: '2026-10-01 周四 19:30' }],
+        ticketOptions: [{ label: '看台', unitPrice: 580 }],
+        priceRange: '',
+        currency: 'CNY',
+        venue: '测试体育场',
+        appOnly: false,
+        ruleNote: '测试用可网页购票场次',
+        eventUrl: 'https://www.damai.cn/',
+        sourceUrl: 'https://www.damai.cn/',
+      });
+    });
+    await page.getByRole('button', { name: /看台.*580/ }).click();
+    await page.getByRole('button', { name: '开始购票' }).click();
+    await page
+      .getByRole('region', { name: '当前任务购票条件' })
+      .getByText('直接打开官网的测试项目')
+      .waitFor();
+    const [started] = await page.evaluate(() => window.ticket.list());
+    assert.equal(started.budget, null, '新任务不应有隐藏的金额上限');
+    assert.equal(started.tiers[0].label, '看台');
+    await page.getByRole('button', { name: '返回任务' }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '删除本地任务' }).click();
     await page.getByRole('button', { name: '我的任务' }).click();
@@ -249,7 +275,6 @@ async function contrastRatio(locator) {
     await page.getByLabel('场馆 / 城市').fill('上海体育馆');
     await page.getByLabel('固定演出场次（当地时间）').fill('2026-10-01T19:30');
     await page.getByLabel('固定人数').fill('2');
-    await page.getByLabel('含费用的总预算').fill('1200');
     await page.getByLabel('票档 1 名称').fill('B 看台');
     await page.getByLabel('票档 1 单张参考价格').fill('580');
     await page.getByLabel('官方购票网址（可暂空）').fill('https://detail.damai.cn/item.htm?id=1');

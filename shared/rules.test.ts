@@ -87,6 +87,12 @@ describe('票档决策', () => {
       'over_budget',
     );
   });
+  it('无预算任务只按已选票档、人数和人工确认状态推荐', () => {
+    expect(chooseTier(tiers, ['available', 'sold_out', 'sold_out'], 2, null)).toMatchObject({
+      kind: 'recommend',
+      index: 0,
+    });
+  });
 });
 
 describe('时间与提醒', () => {

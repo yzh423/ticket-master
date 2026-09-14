@@ -34,7 +34,6 @@ const { readFileSync } = require('node:fs');
     await page.getByLabel('场馆 / 城市').fill('上海');
     await page.getByLabel('固定演出场次（当地时间）').fill('2026-10-01T19:30');
     await page.getByLabel('固定人数').fill('2');
-    await page.getByLabel('含费用的总预算').fill('1200');
     await page.getByLabel('票档 1 名称').fill('看台');
     await page.getByLabel('票档 1 单张参考价格').fill('580');
     await page.getByLabel('官方购票网址（可暂空）').fill('https://www.damai.cn/');

@@ -177,10 +177,6 @@ function BrowserShell() {
                 <strong>
                   {target?.quantity ?? '—'} <small>人</small>
                 </strong>
-                <strong>
-                  {target ? `${target.budget.toLocaleString()} ${target.currency}` : '—'}{' '}
-                  <small>总预算</small>
-                </strong>
               </div>
             </div>
             <div className="browser-tier-heading">

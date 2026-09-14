@@ -466,7 +466,7 @@ p {
 }
 .metric-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   background: #fff;
   border: 1px solid #e5e9e3;
   border-radius: 10px;
@@ -1057,18 +1057,15 @@ p {
   border-radius: 10px;
   color: var(--text);
 }
-.candidate-picker legend,
-.budget-picks > strong {
-  padding: 0 5px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-}
 .candidate-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 8px 0;
+}
+.candidate-picker legend {
+  padding: 0 4px;
+  font-weight: 700;
 }
 .candidate-choice,
 .candidate-ticket {
@@ -1110,13 +1107,8 @@ p {
   font-weight: 800;
 }
 .candidate-picker small,
-.budget-picks small {
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.5;
-}
 .candidate-warning {
+  display: block;
   padding: 11px 13px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1124,15 +1116,6 @@ p {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
-}
-.budget-picks {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.budget-picks small {
-  width: 100%;
 }
 .form-grid.quick-form:not(.show-advanced) > label:not(.quick-field),
 .form-grid.quick-form:not(.show-advanced) > .tier-editor {
@@ -1232,6 +1215,22 @@ label small,
   border-top: 1px solid #e8ede6;
   padding-top: 16px;
 }
+.quick-form .form-actions {
+  position: sticky;
+  bottom: -25px;
+  z-index: 2;
+  margin: 0 -30px -25px;
+  padding: 12px 30px 25px;
+  background: #fff;
+}
+.purchase-handoff-note {
+  align-self: center;
+  max-width: 300px;
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
 .form-error {
   color: #a34b3c;
   background: #fff0ec;
@@ -1326,5 +1325,11 @@ label small,
   }
   .dialog {
     padding: 18px;
+  }
+  .quick-form .form-actions {
+    bottom: -18px;
+    margin: 0 -18px -18px;
+    padding: 12px 18px 18px;
+    flex-wrap: wrap;
   }
 }

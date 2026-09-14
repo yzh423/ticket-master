@@ -230,8 +230,8 @@ export function DiscoverPage({
             <span className="eyebrow">ACTIVE TASK / 当前任务</span>
             <strong>{activeTask.title}</strong>
             <small>
-              固定 {activeTask.quantity} 人 · 总预算 {activeTask.budget} {activeTask.currency} ·
-              票档 {activeTask.tiers.map((tier) => tier.label).join(' → ')}
+              固定 {activeTask.quantity} 人 · 票档{' '}
+              {activeTask.tiers.map((tier) => tier.label).join(' → ')}
               {' · '}
               {purchaseChannelLabels[purchaseChannel]}
             </small>
@@ -537,7 +537,7 @@ export function DiscoverPage({
         </article>
       </div>
       <p className="discover-footnote">
-        仅从官方活动页读取公开资料。部分平台不提供可识别的活动标记；这时仍可在官网查看详情，再手动建立任务。固定场次、所在地时区、票档、人数与预算始终需要核对。
+        仅从官方活动页读取公开资料。部分平台不提供可识别的活动标记；这时仍可在官网查看详情，再手动建立任务。场次、所在地时区、票档与人数始终需要核对。
       </p>
     </div>
   );

@@ -140,9 +140,13 @@ export function chooseTier(
   tiers: Tier[],
   availability: Availability[],
   quantity: number,
-  budget: number,
+  budget: number | null,
 ): Decision {
-  if (!Number.isInteger(quantity) || quantity < 1 || !Number.isFinite(budget) || budget <= 0)
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    (budget !== null && (!Number.isFinite(budget) || budget <= 0))
+  )
     throw new Error('人数或预算无效');
   let overBudget = false,
     needsTotal = false,
@@ -158,7 +162,7 @@ export function chooseTier(
       needsTotal = true;
       continue;
     }
-    if (price * quantity > budget) {
+    if (budget !== null && price * quantity > budget) {
       overBudget = true;
       continue;
     }
@@ -168,8 +172,7 @@ export function chooseTier(
       note: '人工核对实际含服务费总额与购票资格后选择；页面显示可买并不等于已锁票。',
     };
   }
-  if (needsTotal)
-    return { kind: 'check_total', note: '票价未知，先核对订单实际总额；不要超预算提交。' };
+  if (needsTotal) return { kind: 'check_total', note: '票价未知，先在官方结算页核对实际总额。' };
   if (unknown)
     return {
       kind: 'uncertain',
@@ -222,10 +225,9 @@ export function validateEvent(value: EventRecord): EventRecord {
     !Number.isInteger(value.quantity) ||
     value.quantity < 1 ||
     value.quantity > 20 ||
-    !Number.isFinite(value.budget) ||
-    value.budget <= 0
+    (value.budget !== null && (!Number.isFinite(value.budget) || value.budget <= 0))
   )
-    throw new Error('请填写有效人数与总预算');
+    throw new Error('请填写有效人数，旧任务的预算限制也须有效');
   if (
     !Array.isArray(value.tiers) ||
     value.tiers.length === 0 ||
