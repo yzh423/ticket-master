@@ -201,6 +201,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('discover');
   const [editing, setEditing] = useState<EventRecord | true | null>(null);
   const [discoverySeed, setDiscoverySeed] = useState<DiscoveredEvent | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [saleEditor, setSaleEditor] = useState<SaleOpportunity | true | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -359,7 +360,22 @@ export default function App() {
   }
   async function openInside(eventId: string, opportunityId?: string) {
     try {
-      await window.ticket.openInside(eventId, opportunityId);
+      const task = events.find((item) => item.id === eventId);
+      if (!task) throw new Error('任务已不存在');
+      const sale = opportunityId
+        ? task.opportunities.find((item) => item.id === opportunityId)
+        : undefined;
+      if (opportunityId && !sale) throw new Error('销售机会已不存在');
+      const url = sale?.url || task.eventUrl;
+      if (!url) throw new Error('本场尚未设置官方网页入口');
+      if (web) {
+        await window.ticket.openInside(eventId, opportunityId);
+        return;
+      }
+      await window.ticket.discover(task.platform, url);
+      setActiveTaskId(eventId);
+      setSelectedId(null);
+      setPage('discover');
     } catch (e) {
       setError(e instanceof Error ? e.message : '无法打开内置网页');
     }
@@ -429,6 +445,7 @@ export default function App() {
             onClick={() => {
               setPage('discover');
               setSelectedId(null);
+              setActiveTaskId(null);
             }}
           >
             <Search size={18} /> 发现演出
@@ -550,6 +567,11 @@ export default function App() {
             <DiscoverPage
               web={web}
               suspended={Boolean(editing)}
+              activeTask={events.find((item) => item.id === activeTaskId) ?? null}
+              onReturnToTask={() => {
+                if (activeTaskId) openEvent(activeTaskId);
+              }}
+              onClearTask={() => setActiveTaskId(null)}
               onDiscovered={(discovered) => {
                 setDiscoverySeed(discovered);
                 setEditing(true);

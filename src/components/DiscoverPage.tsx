@@ -14,9 +14,28 @@ import {
   X,
 } from 'lucide-react';
 import type { DiscoveredEvent, DiscoveryViewState } from '../../shared/discovery';
-import type { PlatformId } from '../../shared/model';
-import { resolveSearch, searchSources } from '../../shared/search-sources';
+import { platformLabels, type EventRecord, type PlatformId } from '../../shared/model';
+import { resolveSearch, searchSources, type SearchGroup } from '../../shared/search-sources';
 import './discover.css';
+
+const groups: { id: 'all' | SearchGroup; label: string }[] = [
+  { id: 'all', label: '全部' },
+  { id: 'mainland', label: '内地演出' },
+  { id: 'hongkong', label: '香港' },
+  { id: 'international', label: '国际演出' },
+  { id: 'attractions', label: '景点体验' },
+  { id: 'resale', label: '转售市场' },
+];
+const featuredPlatforms = new Set<PlatformId>([
+  'damai',
+  'maoyan',
+  'showstart',
+  'hkticketing',
+  'urbtix',
+  'ticketmaster',
+  'axs',
+  'klook',
+]);
 
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error
@@ -28,12 +47,20 @@ export function DiscoverPage({
   web,
   suspended,
   onDiscovered,
+  activeTask,
+  onReturnToTask,
+  onClearTask,
 }: {
   web: boolean;
   suspended: boolean;
   onDiscovered: (event: DiscoveredEvent) => void;
+  activeTask?: EventRecord | null;
+  onReturnToTask?: () => void;
+  onClearTask?: () => void;
 }) {
   const [platform, setPlatform] = useState<PlatformId>('damai');
+  const [group, setGroup] = useState<'all' | SearchGroup>('all');
+  const [showAll, setShowAll] = useState(false);
   const [input, setInput] = useState('');
   const [message, setMessage] = useState('');
   const [deviceMessage, setDeviceMessage] = useState('');
@@ -43,7 +70,24 @@ export function DiscoverPage({
   const [preview, setPreview] = useState<DiscoveredEvent | null>(null);
   const browserPane = useRef<HTMLDivElement>(null);
   const lastUrl = useRef('');
-  const source = searchSources.find((item) => item.platform === platform)!;
+  const source = searchSources.find((item) => item.platform === platform) ?? {
+    platform,
+    label: platformLabels[platform],
+    region: '指定官方链接',
+    group: 'mainland' as const,
+    mode: 'site' as const,
+    home: state?.url ?? '',
+  };
+
+  useEffect(() => {
+    if (activeTask) {
+      setPlatform(activeTask.platform);
+      setInput('');
+    }
+  }, [activeTask?.id, activeTask?.platform]);
+  useEffect(() => {
+    if (activeTask && state && state.platform !== activeTask.platform) onClearTask?.();
+  }, [activeTask?.id, activeTask?.platform, state?.platform]);
 
   useEffect(() => {
     const unsubscribe = window.ticket.onDiscoveryChanged(setState);
@@ -113,11 +157,16 @@ export function DiscoverPage({
     try {
       resolveSearch(platform, input);
       await window.ticket.discover(platform, input);
+      if (activeTask) onClearTask?.();
       if (!web) {
         setMessage(
-          source.mode === 'keyword'
-            ? `已在下方打开 ${source.label} 搜索。选择具体活动后读取公开信息。`
-            : `已在下方打开 ${source.label} 官网。请在站内搜索「${input.trim()}」并打开具体活动。`,
+          /^https?:/i.test(input.trim())
+            ? `已打开 ${source.label} 官方活动页。请核对场次与购票规则。`
+            : !input.trim()
+              ? `已打开 ${source.label} 官网。`
+              : source.mode === 'keyword'
+                ? `已在下方打开 ${source.label} 搜索。选择具体活动后读取公开信息。`
+                : `已在下方打开 ${source.label} 官网。请在站内搜索「${input.trim()}」并打开具体活动。`,
         );
         requestAnimationFrame(() =>
           browserPane.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
@@ -131,6 +180,7 @@ export function DiscoverPage({
   }
   async function openAccount() {
     try {
+      if (activeTask) onClearTask?.();
       setPlatform('damai');
       await window.ticket.discover('damai', 'https://passport.damai.cn/accountinfo/myinfo');
       browserPane.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -149,42 +199,104 @@ export function DiscoverPage({
 
   return (
     <div className="discover-page">
-      <section className="discover-hero">
-        <div className="discover-hero-copy">
-          <span className="eyebrow">FIND YOUR EVENT / 多平台发现</span>
-          <h1>搜索你想看的演出</h1>
-          <p>选择渠道，搜索活动。官网在工作区以标签页打开；登录与购票仍由官网完成。</p>
-          <div className="discover-sources" role="group" aria-label="选择搜索平台">
-            {searchSources.map((item) => (
-              <button
-                key={item.platform}
-                type="button"
-                className={platform === item.platform ? 'selected' : ''}
-                aria-pressed={platform === item.platform}
-                onClick={() => {
-                  setPlatform(item.platform);
-                  setMessage('');
-                  setPreview(null);
-                  if (state?.tabs.some((tab) => tab.platform === item.platform))
-                    void window.ticket
-                      .discoverySwitch(item.platform)
-                      .then(() =>
-                        browserPane.current?.scrollIntoView({ behavior: 'auto', block: 'center' }),
-                      );
-                }}
-              >
-                <strong>{item.label}</strong>
-                <small>{item.region}</small>
-              </button>
-            ))}
+      {activeTask && (
+        <section className="discover-task-context" aria-label="当前任务购票条件">
+          <div>
+            <span className="eyebrow">ACTIVE TASK / 当前任务</span>
+            <strong>{activeTask.title}</strong>
+            <small>
+              固定 {activeTask.quantity} 人 · 总预算 {activeTask.budget} {activeTask.currency} ·
+              票档 {activeTask.tiers.map((tier) => tier.label).join(' → ')}
+            </small>
           </div>
+          <button className="button secondary" onClick={onReturnToTask}>
+            返回任务
+          </button>
+        </section>
+      )}
+      <section className={`discover-hero${activeTask ? ' task-mode' : ''}`}>
+        <div className="discover-hero-copy">
+          <span className="eyebrow">
+            {activeTask ? 'OFFICIAL EVENT / 官方活动' : 'FIND YOUR EVENT / 多平台发现'}
+          </span>
+          <h1>{activeTask ? '核对当前官方页面' : '搜索你想看的演出'}</h1>
+          <p>
+            {activeTask
+              ? '保持当前官方会话，按任务条件核对场次、票档与实际总价。'
+              : '选择渠道，搜索活动。官网在工作区以标签页打开；登录与购票仍由官网完成。'}
+          </p>
+          {!activeTask && (
+            <div className="discover-groups" role="group" aria-label="筛选平台类别">
+              {groups.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={group === item.id}
+                  className={group === item.id ? 'selected' : ''}
+                  onClick={() => setGroup(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {!activeTask && (
+            <div className="discover-sources" role="group" aria-label="选择搜索平台">
+              {searchSources
+                .filter((item) =>
+                  group === 'all'
+                    ? showAll || featuredPlatforms.has(item.platform)
+                    : item.group === group,
+                )
+                .map((item) => (
+                  <button
+                    key={item.platform}
+                    type="button"
+                    className={platform === item.platform ? 'selected' : ''}
+                    aria-pressed={platform === item.platform}
+                    onClick={() => {
+                      setPlatform(item.platform);
+                      setMessage('');
+                      setPreview(null);
+                      if (state?.tabs.some((tab) => tab.platform === item.platform))
+                        void window.ticket.discoverySwitch(item.platform).then(() =>
+                          browserPane.current?.scrollIntoView({
+                            behavior: 'auto',
+                            block: 'center',
+                          }),
+                        );
+                    }}
+                  >
+                    <strong>{item.label}</strong>
+                    <small>
+                      {item.region} · {item.mode === 'keyword' ? '直达搜索' : '官网入口'}
+                    </small>
+                  </button>
+                ))}
+              {group === 'all' && (
+                <button
+                  type="button"
+                  className="discover-more"
+                  aria-expanded={showAll}
+                  onClick={() => setShowAll((value) => !value)}
+                >
+                  <strong>{showAll ? '收起平台' : `更多平台 · ${searchSources.length}`}</strong>
+                  <small>按类别筛选更快</small>
+                </button>
+              )}
+            </div>
+          )}
           <form className="discover-search" onSubmit={(event) => void search(event)}>
             <Search size={20} aria-hidden="true" />
             <input
               aria-label="演出关键词或官方活动链接"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="歌手、活动名，或粘贴所选平台的官方链接"
+              placeholder={
+                source.mode === 'keyword'
+                  ? '歌手、活动名，或粘贴官方链接'
+                  : '粘贴官方链接；也可留空打开官网'
+              }
               autoFocus
             />
             <button type="submit" disabled={busy}>
@@ -192,9 +304,11 @@ export function DiscoverPage({
                 ? '打开中…'
                 : /^https?:/i.test(input.trim())
                   ? '打开活动'
-                  : source.mode === 'keyword'
-                    ? '搜索演出'
-                    : '打开官网'}{' '}
+                  : !input.trim()
+                    ? '打开官网'
+                    : source.mode === 'keyword'
+                      ? '搜索演出'
+                      : '打开官网'}{' '}
               <ArrowRight size={16} />
             </button>
           </form>
@@ -232,7 +346,7 @@ export function DiscoverPage({
               >
                 <Globe2 size={14} />
                 {searchSources.find((item) => item.platform === tab.platform)?.label ??
-                  tab.platform}
+                  platformLabels[tab.platform]}
               </button>
             ))}
           </div>
@@ -304,9 +418,13 @@ export function DiscoverPage({
                 {preview.dateHint || '日期待核对'} · {preview.venue || '场馆待核对'}
               </small>
             </div>
-            <button onClick={() => onDiscovered(preview)}>
-              <Check size={16} /> 填入购票任务
-            </button>
+            {activeTask ? (
+              <small>当前任务已建立，请在任务页核对并修改规则。</small>
+            ) : (
+              <button onClick={() => onDiscovered(preview)}>
+                <Check size={16} /> 填入购票任务
+              </button>
+            )}
           </div>
         )}
         <div className="discover-browser-pane" ref={browserPane}>

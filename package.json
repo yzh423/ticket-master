@@ -1,6 +1,6 @@
 {
   "name": "ticket-window",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "本地官方购票流程辅助工具",
   "main": "dist-electron/electron/main.js",
@@ -46,10 +46,12 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
+      "build/icon.ico",
       "node_modules/sql.js/dist/sql-asm.js",
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": "nsis"
     },
     "nsis": {

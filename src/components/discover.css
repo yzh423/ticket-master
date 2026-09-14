@@ -2,6 +2,54 @@
   display: grid;
   gap: 27px;
 }
+.discover-task-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 20px;
+  border: 1px solid #b8d7f5;
+  border-radius: 14px;
+  background: #edf6ff;
+}
+.discover-task-context > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.discover-task-context strong {
+  color: #123b62;
+  font-size: 17px;
+}
+.discover-task-context small {
+  color: #496b89;
+  line-height: 1.5;
+}
+.discover-task-context .button {
+  flex: none;
+}
+.discover-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.discover-groups button {
+  border: 1px solid #dce4ef;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b627c;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.discover-groups button:hover {
+  border-color: #80b8f3;
+}
+.discover-groups button.selected {
+  border-color: #0a70d4;
+  background: #e8f3ff;
+  color: #075aa7;
+}
 .discover-hero {
   background: #eaf1e8;
   border: 1px solid #d7e4d9;
@@ -15,6 +63,19 @@
   font-size: clamp(29px, 3vw, 39px);
   letter-spacing: -0.045em;
   margin-bottom: 10px;
+}
+.discover-hero.task-mode {
+  padding: 16px 20px;
+}
+.discover-hero.task-mode h1 {
+  font-size: 21px;
+  margin-bottom: 3px;
+}
+.discover-hero.task-mode .discover-search {
+  margin-top: 10px;
+}
+.discover-hero.task-mode .discover-trust {
+  margin-top: 7px;
 }
 .discover-hero p {
   max-width: 680px;
@@ -268,14 +329,15 @@
   margin: 17px 0;
 }
 .discover-sources button {
-  display: flex;
-  align-items: center;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
   gap: 7px;
   border: 1px solid #cfdfd2;
   background: #f8fbf7;
   color: #315c4c;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 8px 11px;
   font-size: 12px;
 }
 .discover-sources button.selected {
@@ -283,6 +345,14 @@
   background: #205c4b;
   border-color: #205c4b;
   box-shadow: 0 3px 12px #205c4b24;
+}
+.discover-sources button.discover-more {
+  border-style: dashed;
+  color: #1c65ac;
+  background: #f2f8ff;
+}
+.discover-sources button.discover-more:hover {
+  background: #e9f3ff;
 }
 .discover-sources small {
   opacity: 0.68;
@@ -430,10 +500,34 @@
   border-color: #31565b;
   color: #c0ded4;
 }
+:root[data-theme='dark'] .discover-task-context {
+  background: #183448;
+  border-color: #376383;
+}
+:root[data-theme='dark'] .discover-task-context strong {
+  color: #dbeeff;
+}
+:root[data-theme='dark'] .discover-task-context small {
+  color: #a8c9e2;
+}
+:root[data-theme='dark'] .discover-groups button {
+  background: #19353a;
+  border-color: #31565b;
+  color: #c0ded4;
+}
+:root[data-theme='dark'] .discover-groups button.selected {
+  background: #193e59;
+  border-color: #65b9ff;
+  color: #b9e2ff;
+}
 :root[data-theme='dark'] .discover-sources button.selected {
   background: #61d8be;
   color: #10342f;
   border-color: #61d8be;
+}
+:root[data-theme='dark'] .discover-sources button.discover-more {
+  background: #193e59;
+  color: #b9e2ff;
 }
 :root[data-theme='dark'] .discover-workspace {
   background: #14252f;

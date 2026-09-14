@@ -18,11 +18,20 @@ describe('多平台发现入口', () => {
     expect(() => resolveSearch('axs', 'https://www.axs.com.evil.example/')).toThrow();
     expect(() => resolveSearch('axs', 'https://www.ticketmaster.com/')).toThrow();
     expect(() => resolveSearch('axs', 'javascript://example')).toThrow();
-    expect(() => resolveSearch('axs', '')).toThrow();
+    expect(resolveSearch('axs', '').url).toBe('https://www.axs.com/');
+    expect(resolveSearch('damai', '').url).toBe('https://www.damai.cn/');
+    expect(resolveSearch('piaoxingqiu', 'https://m.piaoxingqiu.com/').url).toBe(
+      'https://m.piaoxingqiu.com/',
+    );
+    expect(
+      resolveSearch('damai', `https://detail.damai.cn/item.htm?id=${'1'.repeat(130)}`).url,
+    ).toContain('id=');
+    expect(() => resolveSearch('piaoxingqiu', '')).toThrow();
   });
 
   it('所有入口属于已验证的官方域名', () => {
-    expect(searchSources.length).toBeGreaterThan(2);
+    expect(searchSources.length).toBeGreaterThanOrEqual(20);
+    expect(new Set(searchSources.map((source) => source.platform)).size).toBe(searchSources.length);
     for (const source of searchSources)
       expect(officialUrl(source.platform, resolveSearch(source.platform, 'test').url)).toBe(true);
   });

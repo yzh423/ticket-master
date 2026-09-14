@@ -46,6 +46,10 @@ async function contrastRatio(locator) {
       if (message.type() === 'error') errors.push(message.text());
     });
     await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    await page.getByRole('button', { name: /更多平台 · 20/ }).click();
+    await page.getByRole('button', { name: /StubHub/ }).waitFor();
+    await page.getByRole('button', { name: /收起平台/ }).click();
+    await page.screenshot({ path: join(artifacts, 'discover-latest.png') });
     await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋 深圳');
     await page.getByRole('button', { name: '搜索演出' }).click();
     await page.getByRole('button', { name: '读取活动信息' }).waitFor();
@@ -126,6 +130,19 @@ async function contrastRatio(locator) {
       1,
     );
     await page.getByRole('button', { name: '关闭站内网页' }).click();
+    await page
+      .getByRole('group', { name: '筛选平台类别' })
+      .getByRole('button', { name: '香港' })
+      .click();
+    await page.getByRole('button', { name: /URBTIX/ }).click();
+    await page.getByLabel('演出关键词或官方活动链接').fill('');
+    await page.getByRole('button', { name: '打开官网' }).click();
+    assert.equal((await page.evaluate(() => window.ticket.discoveryState())).platform, 'urbtix');
+    await page.getByRole('button', { name: '关闭站内网页' }).click();
+    await page
+      .getByRole('group', { name: '筛选平台类别' })
+      .getByRole('button', { name: '全部' })
+      .click();
     await page.getByRole('button', { name: '关闭站内网页' }).click();
     await page.getByRole('button', { name: '我的任务' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
@@ -157,37 +174,31 @@ async function contrastRatio(locator) {
       .getByRole('button', { name: /补全官方销售日历/ })
       .click();
     await page.getByRole('tab', { name: /官方机会/ }).waitFor();
-    const browserWindow = app.waitForEvent('window', {
-      predicate: (candidate) => candidate.url().includes('browser.html'),
-    });
     await page.getByRole('button', { name: '内置官方网页' }).click();
-    const browser = await browserWindow;
-    await browser.getByText('本次购票硬条件').waitFor();
+    await page
+      .getByRole('region', { name: '当前任务购票条件' })
+      .getByText('测试巡演 · 上海站')
+      .waitFor();
     assert.equal(
-      await browser
-        .locator('.browser-shell')
-        .evaluate((node) => getComputedStyle(node).backgroundColor),
-      'rgb(245, 247, 250)',
-      '内置网页工作区应遵循浅色外观',
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+      1,
+      '从任务打开官网应留在主窗口',
     );
     const viewBefore = await app.evaluate(({ BrowserWindow }) => {
-      const holder = BrowserWindow.getAllWindows().find((item) =>
-        item.getTitle().includes('官方网页工作区'),
-      );
+      const holder = BrowserWindow.getAllWindows()[0];
       const child = holder?.contentView.children[0];
       return child && 'webContents' in child ? child.webContents.id : null;
     });
-    assert.ok(viewBefore, '内置官方网页应有独立 WebContentsView');
+    assert.ok(viewBefore, '任务官网应显示为主窗口内的 WebContentsView');
+    await page.getByRole('button', { name: '返回任务' }).click();
     await page.getByRole('button', { name: '内置官方网页' }).click();
     const viewAfter = await app.evaluate(({ BrowserWindow }) => {
-      const holder = BrowserWindow.getAllWindows().find((item) =>
-        item.getTitle().includes('官方网页工作区'),
-      );
+      const holder = BrowserWindow.getAllWindows()[0];
       const child = holder?.contentView.children[0];
       return child && 'webContents' in child ? child.webContents.id : null;
     });
     assert.equal(viewAfter, viewBefore, '再次打开同一任务不应重建网页会话');
-    await browser.screenshot({ path: join(artifacts, 'browser.png'), fullPage: true });
+    await page.screenshot({ path: join(artifacts, 'browser.png'), fullPage: true });
     await page.getByRole('button', { name: '设备与会话' }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '清除该平台网页数据' }).click();
@@ -195,12 +206,9 @@ async function contrastRatio(locator) {
       .getByRole('status')
       .getByText('请先关闭该平台的网页工作区', { exact: false })
       .waitFor();
-    await browser
-      .getByRole('button', { name: '关闭网页工作区' })
-      .click()
-      .catch((error) => {
-        if (!browser.isClosed()) throw error;
-      });
+    await page.getByRole('button', { name: '发现演出' }).click();
+    await page.getByRole('button', { name: '关闭站内网页' }).click();
+    await page.getByRole('button', { name: '设备与会话' }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '清除该平台网页数据' }).click();
     await page.getByRole('status').getByText('已清除。再次打开该平台', { exact: false }).waitFor();
