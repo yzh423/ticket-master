@@ -1,6 +1,7 @@
 import type { EventRecord, PlatformId } from '../shared/model';
 import type { BrowserState } from '../shared/browser';
-import type { DiscoveredEvent } from '../shared/discovery';
+import type { DiscoveredEvent, DiscoveryViewState } from '../shared/discovery';
+import type { DiscoveryBounds } from '../electron/inline-discovery';
 declare global {
   interface Window {
     ticket: {
@@ -14,7 +15,15 @@ declare global {
       openReference(eventId: string, opportunityId?: string): Promise<void>;
       openKnowledgeSource(id: string): Promise<void>;
       openInside(eventId: string, opportunityId?: string): Promise<void>;
-      discover(input: string): Promise<void>;
+      discover(platform: PlatformId, input: string): Promise<void>;
+      discoveryState(): Promise<DiscoveryViewState | null>;
+      discoveryBounds(bounds: DiscoveryBounds | null): Promise<void>;
+      discoveryBack(): Promise<void>;
+      discoveryForward(): Promise<void>;
+      discoveryClose(): Promise<void>;
+      discoveryExternal(): Promise<void>;
+      discoveryInspect(): Promise<DiscoveredEvent>;
+      onDiscoveryChanged(callback: (state: DiscoveryViewState | null) => void): () => void;
       onDiscovered(callback: (event: DiscoveredEvent) => void): () => void;
       clearBrowserData(platform: PlatformId): Promise<void>;
       usbStatus(): Promise<string>;

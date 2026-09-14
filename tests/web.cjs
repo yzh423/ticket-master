@@ -16,17 +16,18 @@ const { readFileSync } = require('node:fs');
     await page.goto(url);
     await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
     await page
-      .getByLabel('演出关键词或大麦链接')
+      .getByLabel('演出关键词或官方活动链接')
       .fill('https://detail.damai.cn.evil.example/item.htm?id=1');
-    await page.getByRole('button', { name: '打开大麦活动' }).click();
-    await page.getByRole('status').getByText('请使用大麦官方活动详情链接').waitFor();
+    await page.getByRole('button', { name: '打开活动' }).click();
+    await page.getByRole('status').filter({ hasText: '请使用所选平台的官方 HTTPS 链接' }).waitFor();
     await context.route('https://search.damai.cn/**', (route) =>
       route.fulfill({ status: 200, contentType: 'text/html', body: '<title>大麦官方搜索</title>' }),
     );
-    await page.getByLabel('演出关键词或大麦链接').fill('邓紫棋 深圳');
-    const searchPage = context.waitForEvent('page');
-    await page.getByRole('button', { name: '在大麦搜索' }).click();
-    await (await searchPage).waitForURL(/search\.damai\.cn\/search\.htm\?keyword=/);
+    await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋 深圳');
+    await page.getByRole('button', { name: '搜索演出' }).click();
+    await page.waitForURL(/search\.damai\.cn\/search\.htm\?keyword=/);
+    await page.goBack();
+    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
     await page.getByRole('button', { name: '我的任务' }).click();
     await page.getByRole('button', { name: '新建任务' }).click();
     await page.getByLabel('活动名称').fill('浏览器启动测试');

@@ -31,8 +31,12 @@ export function EventForm({
   const [sessionLocal, setSessionLocal] = useState(
     initial?.sessionLocal ?? seed?.sessionLocal ?? '',
   );
-  const [timeZone, setTimeZone] = useState(initial?.timeZone ?? 'Asia/Shanghai');
-  const [currency, setCurrency] = useState(initial?.currency ?? 'CNY');
+  const [timeZone, setTimeZone] = useState(
+    initial?.timeZone ?? (seed && seed.platform !== 'damai' ? '' : 'Asia/Shanghai'),
+  );
+  const [currency, setCurrency] = useState(
+    initial?.currency ?? (seed && seed.platform !== 'damai' ? '' : 'CNY'),
+  );
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
   const [budget, setBudget] = useState<number | ''>(initial?.budget ?? (seed ? '' : 1000));
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
@@ -115,7 +119,7 @@ export function EventForm({
           <div className="import-summary" role="status">
             <Info size={18} />
             <div>
-              <strong>已从大麦公开页面带入活动信息</strong>
+              <strong>已从{platformLabels[seed.platform]}公开页面带入活动信息</strong>
               <p>
                 页面日期：{seed.dateHint || '未显示明确日期'}。
                 {seed.appOnly ? '该项目提示在大麦 App 下单。' : '购票渠道仍需核对。'}

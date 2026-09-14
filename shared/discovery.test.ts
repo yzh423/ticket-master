@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { damaiDiscoveryUrl, parseDamaiPublicDetail } from './discovery';
+import { damaiDiscoveryUrl, parseDamaiPublicDetail, parseStructuredPublicEvent } from './discovery';
 
 describe('大麦发现入口', () => {
   it('把关键词编码为官方搜索网址，也允许直接使用官方项目链接', () => {
@@ -15,6 +15,37 @@ describe('大麦发现入口', () => {
     expect(() => damaiDiscoveryUrl(' ')).toThrow();
     expect(() => damaiDiscoveryUrl('x'.repeat(121))).toThrow();
     expect(() => damaiDiscoveryUrl('https://detail.damai.cn.evil.example/item.htm?id=1')).toThrow();
+  });
+});
+
+describe('其他平台公开活动资料', () => {
+  it('只从所选官方平台的活动页建立待核对任务', () => {
+    expect(
+      parseStructuredPublicEvent('ticketmaster', 'https://www.ticketmaster.com/example/event/123', {
+        title: 'Example Concert',
+        dateText: '2026-11-02T19:30:00-05:00',
+        venueText: 'Example Arena',
+      }),
+    ).toMatchObject({
+      platform: 'ticketmaster',
+      title: 'Example Concert',
+      venue: 'Example Arena',
+      sessionLocal: '',
+    });
+    expect(() =>
+      parseStructuredPublicEvent('ticketmaster', 'https://fake.example/event/123', {
+        title: 'Example Concert',
+        dateText: '',
+        venueText: '',
+      }),
+    ).toThrow();
+    expect(() =>
+      parseStructuredPublicEvent('axs', 'https://www.axs.com/events/123', {
+        title: '',
+        dateText: '',
+        venueText: '',
+      }),
+    ).toThrow();
   });
 });
 

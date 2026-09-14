@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { TicketStore } from './store';
 import { OfficialBrowserManager } from './official-browser';
+import { InlineDiscovery, type DiscoveryBounds } from './inline-discovery';
 import { resolveBrowserTarget } from '../shared/browser';
 import { marketSource } from '../shared/market';
 import {
@@ -35,6 +36,7 @@ if (!singleInstance) app.quit();
 let store: TicketStore;
 let window: BrowserWindow | null = null;
 let officialBrowser: OfficialBrowserManager;
+let inlineDiscovery: InlineDiscovery;
 const adb = async (args: string[]): Promise<string> => {
   const result = await run('adb', args, { timeout: 7000, windowsHide: true });
   return result.stdout;
@@ -223,10 +225,38 @@ if (singleInstance)
         const target = resolveBrowserTarget(store.list(), eventId, opportunityId);
         officialBrowser.open(target);
       });
-      ipcMain.handle('official:discover', (event, input: string) => {
+      ipcMain.handle('official:discover', (event, platform: PlatformId, input: string) => {
         forMain(event.sender);
         if (typeof input !== 'string') throw new Error('搜索内容无效');
-        officialBrowser.openDiscovery(input);
+        inlineDiscovery.open(platform, input);
+      });
+      ipcMain.handle('discovery:state', (event) => {
+        forMain(event.sender);
+        return inlineDiscovery.state();
+      });
+      ipcMain.handle('discovery:bounds', (event, bounds: DiscoveryBounds | null) => {
+        forMain(event.sender);
+        inlineDiscovery.setBounds(bounds);
+      });
+      ipcMain.handle('discovery:back', (event) => {
+        forMain(event.sender);
+        inlineDiscovery.back();
+      });
+      ipcMain.handle('discovery:forward', (event) => {
+        forMain(event.sender);
+        inlineDiscovery.forward();
+      });
+      ipcMain.handle('discovery:close', (event) => {
+        forMain(event.sender);
+        inlineDiscovery.close();
+      });
+      ipcMain.handle('discovery:external', async (event) => {
+        forMain(event.sender);
+        await inlineDiscovery.external();
+      });
+      ipcMain.handle('discovery:inspect', async (event) => {
+        forMain(event.sender);
+        return inlineDiscovery.inspect();
       });
       ipcMain.handle('browser:inspect-current', (event) =>
         officialBrowser.inspectCurrent(event.sender),
@@ -246,7 +276,7 @@ if (singleInstance)
         forMain(event.sender);
         if (!Object.hasOwn(platformLabels, platform) || platform === 'other')
           throw new Error('请选择已支持的平台');
-        if (officialBrowser.isOpenFor(platform))
+        if (officialBrowser.isOpenFor(platform) || inlineDiscovery.isOpenFor(platform))
           throw new Error('请先关闭该平台的网页工作区，再清除登录数据，以免中断当前会话');
         const browserSession = session.fromPartition(`persist:ticket-${platform}`);
         await browserSession.clearStorageData();
@@ -271,6 +301,7 @@ if (singleInstance)
         }
       });
       createWindow();
+      if (window) inlineDiscovery = new InlineDiscovery(window);
       setInterval(notifyDue, 15_000);
       notifyDue();
       app.on('activate', () => {

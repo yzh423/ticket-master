@@ -547,7 +547,14 @@ export default function App() {
               onReference={openReference}
             />
           ) : page === 'discover' ? (
-            <DiscoverPage web={web} />
+            <DiscoverPage
+              web={web}
+              suspended={Boolean(editing)}
+              onDiscovered={(discovered) => {
+                setDiscoverySeed(discovered);
+                setEditing(true);
+              }}
+            />
           ) : page === 'dashboard' ? (
             <>
               <div className="page-heading">

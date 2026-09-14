@@ -46,33 +46,74 @@ async function contrastRatio(locator) {
       if (message.type() === 'error') errors.push(message.text());
     });
     await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
-    await page.getByLabel('演出关键词或大麦链接').fill('邓紫棋 深圳');
-    const discoverWindow = app.waitForEvent('window', {
-      predicate: (candidate) => candidate.url().includes('browser.html'),
-    });
-    await page.getByRole('button', { name: '在大麦搜索' }).click();
-    const discoverBrowser = await discoverWindow;
-    await discoverBrowser.getByRole('button', { name: '识别当前活动' }).waitFor();
+    await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋 深圳');
+    await page.getByRole('button', { name: '搜索演出' }).click();
+    await page.getByRole('button', { name: '读取活动信息' }).waitFor();
+    assert.equal(
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+      1,
+      '搜索不得创建新窗口',
+    );
     const discoveryView = await app.evaluate(({ BrowserWindow }) => {
-      const holder = BrowserWindow.getAllWindows().find((item) =>
-        item.getTitle().includes('官方网页工作区'),
-      );
+      const holder = BrowserWindow.getAllWindows()[0];
       const child = holder?.contentView.children[0];
       return child && 'webContents' in child ? child.webContents.id : null;
     });
-    await page.getByLabel('演出关键词或大麦链接').fill('上海 音乐节');
-    await page.getByRole('button', { name: '在大麦搜索' }).click();
+    assert.ok(discoveryView, '搜索网页应嵌入主窗口');
+    await page.getByLabel('演出关键词或官方活动链接').fill('上海 音乐节');
+    await page.getByRole('button', { name: '搜索演出' }).click();
     const discoveryViewAfter = await app.evaluate(({ BrowserWindow }) => {
-      const holder = BrowserWindow.getAllWindows().find((item) =>
-        item.getTitle().includes('官方网页工作区'),
-      );
+      const holder = BrowserWindow.getAllWindows()[0];
       const child = holder?.contentView.children[0];
       return child && 'webContents' in child ? child.webContents.id : null;
     });
     assert.equal(discoveryViewAfter, discoveryView, '再次搜索应复用已有发现会话');
-    await discoverBrowser.getByRole('button', { name: '识别当前活动' }).click();
-    await discoverBrowser.getByText('请先打开大麦活动详情页').waitFor();
-    await discoverBrowser.getByRole('button', { name: '关闭网页工作区' }).click();
+    const inspectError = await page.evaluate(async () => {
+      try {
+        await window.ticket.discoveryInspect();
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    });
+    assert.match(inspectError, /请先/);
+    await page.getByRole('button', { name: /Ticketmaster/ }).click();
+    await page.getByLabel('演出关键词或官方活动链接').fill('Coldplay');
+    await page.getByRole('button', { name: '搜索演出' }).click();
+    assert.equal(
+      (await page.evaluate(() => window.ticket.discoveryState())).platform,
+      'ticketmaster',
+    );
+    assert.equal(
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+      1,
+      '跨平台搜索仍应留在主窗口',
+    );
+    await page.getByRole('status').filter({ hasText: '已在下方打开 Ticketmaster' }).waitFor();
+    let inlineBounds;
+    for (let i = 0; i < 20; i++) {
+      inlineBounds = await app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].contentView.children[0].getBounds(),
+      );
+      if (inlineBounds.width > 200 && inlineBounds.height > 200) break;
+      await page.waitForTimeout(50);
+    }
+    assert.ok(inlineBounds.width > 200 && inlineBounds.height > 200, '切换平台后官网区域应可见');
+    await assert.rejects(
+      page.evaluate(() => window.ticket.clearBrowserData('ticketmaster')),
+      /请先关闭该平台的网页工作区/,
+    );
+    await page.getByRole('button', { name: '关闭站内网页' }).click();
+    await page.evaluate(() => window.ticket.clearBrowserData('ticketmaster'));
+    await page.getByRole('button', { name: /猫眼演出/ }).click();
+    await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋');
+    await page.getByRole('button', { name: '打开官网' }).click();
+    assert.equal((await page.evaluate(() => window.ticket.discoveryState())).platform, 'maoyan');
+    assert.equal(
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+      1,
+    );
+    await page.getByRole('button', { name: '关闭站内网页' }).click();
     await page.getByRole('button', { name: '我的任务' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     await page.getByRole('button', { name: '切换深色模式' }).click();

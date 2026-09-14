@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { EventRecord, PlatformId } from '../shared/model';
-import type { DiscoveredEvent } from '../shared/discovery';
+import type { DiscoveredEvent, DiscoveryViewState } from '../shared/discovery';
+import type { DiscoveryBounds } from './inline-discovery';
 
 contextBridge.exposeInMainWorld('ticket', {
   environment: 'desktop',
@@ -16,7 +17,21 @@ contextBridge.exposeInMainWorld('ticket', {
   openKnowledgeSource: (id: string): Promise<void> => ipcRenderer.invoke('knowledge:open', id),
   openInside: (eventId: string, opportunityId?: string): Promise<void> =>
     ipcRenderer.invoke('official:open-inside', eventId, opportunityId),
-  discover: (input: string): Promise<void> => ipcRenderer.invoke('official:discover', input),
+  discover: (platform: PlatformId, input: string): Promise<void> =>
+    ipcRenderer.invoke('official:discover', platform, input),
+  discoveryState: (): Promise<DiscoveryViewState | null> => ipcRenderer.invoke('discovery:state'),
+  discoveryBounds: (bounds: DiscoveryBounds | null): Promise<void> =>
+    ipcRenderer.invoke('discovery:bounds', bounds),
+  discoveryBack: (): Promise<void> => ipcRenderer.invoke('discovery:back'),
+  discoveryForward: (): Promise<void> => ipcRenderer.invoke('discovery:forward'),
+  discoveryClose: (): Promise<void> => ipcRenderer.invoke('discovery:close'),
+  discoveryExternal: (): Promise<void> => ipcRenderer.invoke('discovery:external'),
+  discoveryInspect: (): Promise<DiscoveredEvent> => ipcRenderer.invoke('discovery:inspect'),
+  onDiscoveryChanged: (callback: (state: DiscoveryViewState | null) => void): (() => void) => {
+    const listener = (_event: unknown, state: DiscoveryViewState | null) => callback(state);
+    ipcRenderer.on('discovery:changed', listener);
+    return () => ipcRenderer.removeListener('discovery:changed', listener);
+  },
   onDiscovered: (callback: (event: DiscoveredEvent) => void): (() => void) => {
     const listener = (_event: unknown, discovered: DiscoveredEvent) => callback(discovered);
     ipcRenderer.on('discovery:selected', listener);

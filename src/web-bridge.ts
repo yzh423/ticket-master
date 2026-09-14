@@ -2,7 +2,7 @@ import { resolveBrowserTarget } from '../shared/browser';
 import { marketSource } from '../shared/market';
 import type { EventRecord, PlatformId } from '../shared/model';
 import { officialUrl, referenceUrl, validateEvent } from '../shared/rules';
-import { damaiDiscoveryUrl } from '../shared/discovery';
+import { resolveSearch } from '../shared/search-sources';
 
 const storageKey = 'ticket-window:web-events:v1';
 const backupFormat = 'ticket-window-web-backup-v1';
@@ -89,7 +89,19 @@ export function installWebBridge(): void {
       const target = resolveBrowserTarget(read(), eventId, opportunityId);
       openOfficial(target.platform, target.url);
     },
-    discover: async (input) => openOfficial('damai', damaiDiscoveryUrl(input)),
+    discover: async (platform, input) => {
+      location.assign(resolveSearch(platform, input).url);
+    },
+    discoveryState: async () => null,
+    discoveryBounds: async () => {},
+    discoveryBack: async () => {},
+    discoveryForward: async () => {},
+    discoveryClose: async () => {},
+    discoveryExternal: async () => {},
+    discoveryInspect: async () => {
+      throw new Error('浏览器版不能跨网站读取详情，请使用桌面版');
+    },
+    onDiscoveryChanged: () => () => {},
     onDiscovered: () => () => {},
     clearBrowserData: async () => {
       throw new Error('浏览器版不能清除其他网站的登录数据；请使用浏览器自身的站点设置。');
