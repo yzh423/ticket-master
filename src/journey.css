@@ -283,3 +283,82 @@
     text-align: left;
   }
 }
+
+.announcement-import {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.announcement-import summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.announcement-import > p,
+.announcement-candidates > small {
+  display: block;
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.announcement-import textarea {
+  min-height: 88px;
+}
+.announcement-candidates {
+  display: grid;
+  gap: 7px;
+  max-height: 225px;
+  margin-top: 10px;
+  overflow: auto;
+}
+.announcement-candidates button {
+  display: grid;
+  gap: 4px;
+  padding: 9px 11px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.announcement-candidates button:hover,
+.announcement-candidates button.selected {
+  border-color: var(--accent);
+}
+.announcement-candidates button.selected {
+  background: var(--accent-dark);
+}
+.announcement-candidates button strong {
+  font-size: 12px;
+}
+.announcement-candidates button span {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.announcement-candidates button em {
+  color: var(--amber);
+  font-size: 10px;
+  font-style: normal;
+}
+.announcement-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--text);
+  line-height: 1.5;
+}
+.announcement-review input {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  margin: 0;
+}

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import {
   saleLabels,
@@ -8,6 +8,7 @@ import {
 } from '../../shared/model';
 import { formatLocalInstant, parseLocalInstant } from '../../shared/rules';
 import { Temporal } from '@js-temporal/polyfill';
+import { extractAnnouncementTimes } from '../../shared/announcement-import';
 
 export function OpportunityForm({
   event,
@@ -33,6 +34,13 @@ export function OpportunityForm({
     initial?.verifiedAt ?? Temporal.Now.plainDateISO().toString(),
   );
   const [note, setNote] = useState(initial?.note ?? '');
+  const [announcement, setAnnouncement] = useState('');
+  const [candidateApplied, setCandidateApplied] = useState(false);
+  const [candidateConfirmed, setCandidateConfirmed] = useState(false);
+  const candidates = useMemo(
+    () => extractAnnouncementTimes(announcement, timeZone),
+    [announcement, timeZone],
+  );
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
@@ -43,6 +51,8 @@ export function OpportunityForm({
     setBusy(true);
     setError('');
     try {
+      if (candidateApplied && !candidateConfirmed)
+        throw new Error('请先在官方公告核对活动、开售时间、时区和来源，再确认保存');
       await onSave({
         id: initial?.id ?? crypto.randomUUID(),
         type,
@@ -87,9 +97,63 @@ export function OpportunityForm({
           </button>
         </div>
         <form onSubmit={submit} className="form-grid">
+          <details className="announcement-import wide">
+            <summary>粘贴公告，辅助提取时间</summary>
+            <p>只识别含完整年份的日期和 24 小时时间。原文仅在本窗口本地分析，不会保存。</p>
+            <label>
+              官方公告文字
+              <textarea
+                rows={4}
+                maxLength={10000}
+                value={announcement}
+                onChange={(e) => {
+                  setAnnouncement(e.target.value);
+                  setCandidateConfirmed(false);
+                }}
+                placeholder="例如：公开开售 2026年9月20日 12:00；演出 2026年10月1日 19:30"
+              />
+            </label>
+            {announcement.trim() &&
+              (candidates.length ? (
+                <div className="announcement-candidates" role="group" aria-label="识别出的时间候选">
+                  <small>识别到 {candidates.length} 个时间。请从原文判断哪一个是本轮开售：</small>
+                  {candidates.map((candidate) => (
+                    <button
+                      key={candidate.localTime}
+                      type="button"
+                      className={
+                        localTime === candidate.localTime && candidateApplied ? 'selected' : ''
+                      }
+                      aria-pressed={localTime === candidate.localTime && candidateApplied}
+                      onClick={() => {
+                        setLocalTime(candidate.localTime);
+                        setCandidateApplied(true);
+                        setCandidateConfirmed(false);
+                      }}
+                    >
+                      <strong>{candidate.localTime.replace('T', ' ')}</strong>
+                      <span>{candidate.excerpt}</span>
+                      {candidate.localTime === event.sessionLocal && (
+                        <em>与已录入的演出场次相同，请确认它是否真是开售时间。</em>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p role="status">
+                  未识别到有效的完整日期与时间；请检查年份、24 小时制和时区，或手动填写。
+                </p>
+              ))}
+          </details>
           <label>
             机会类型
-            <select value={type} onChange={(e) => setType(e.target.value as SaleType)}>
+            <select
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value as SaleType);
+                setCandidateConfirmed(false);
+              }}
+            >
               {Object.entries(saleLabels).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}
@@ -103,19 +167,32 @@ export function OpportunityForm({
               required
               type="datetime-local"
               value={localTime}
-              onChange={(e) => setLocalTime(e.target.value)}
+              onChange={(e) => {
+                setLocalTime(e.target.value);
+                setCandidateConfirmed(false);
+              }}
             />
           </label>
           <label>
             时区
-            <input required value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
+            <input
+              required
+              value={timeZone}
+              onChange={(e) => {
+                setTimeZone(e.target.value);
+                setCandidateConfirmed(false);
+              }}
+            />
           </label>
           <label>
             截止（选填，同一时区）
             <input
               type="datetime-local"
               value={endLocal}
-              onChange={(e) => setEndLocal(e.target.value)}
+              onChange={(e) => {
+                setEndLocal(e.target.value);
+                setCandidateConfirmed(false);
+              }}
             />
           </label>
           <label className="wide">
@@ -131,7 +208,10 @@ export function OpportunityForm({
             <input
               type="url"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setCandidateConfirmed(false);
+              }}
               placeholder="平台官方 HTTPS 地址；App 入口可留空"
             />
           </label>
@@ -141,9 +221,22 @@ export function OpportunityForm({
               required
               type="url"
               value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
+              onChange={(e) => {
+                setSourceUrl(e.target.value);
+                setCandidateConfirmed(false);
+              }}
             />
           </label>
+          {candidateApplied && (
+            <label className="announcement-review wide">
+              <input
+                type="checkbox"
+                checked={candidateConfirmed}
+                onChange={(e) => setCandidateConfirmed(e.target.checked)}
+              />
+              <span>我已在官方公告核对本场活动、开售时间、时区及来源</span>
+            </label>
+          )}
           <label>
             核实日期
             <input

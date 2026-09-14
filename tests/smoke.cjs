@@ -120,13 +120,39 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '我的任务' }).click();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     await page.getByRole('button', { name: '添加机会' }).click();
-    await page.getByLabel('开始（所在地时间）').fill('2026-09-20T12:00');
+    await page.getByText('粘贴公告，辅助提取时间').click();
+    await page
+      .getByLabel('官方公告文字')
+      .fill('演出 2026年10月1日 19:30；公开开售 2026年9月20日 12:00。');
+    await page
+      .getByRole('group', { name: '识别出的时间候选' })
+      .getByRole('button', { name: /2026-09-20 12:00/ })
+      .click();
+    assert.equal(await page.getByLabel('开始（所在地时间）').inputValue(), '2026-09-20T12:00');
+    await page.screenshot({ path: join(artifacts, 'opportunity-import.png') });
+    await page.getByRole('button', { name: '保存机会' }).click();
+    await page.getByRole('alert').getByText('请先在官方公告核对活动', { exact: false }).waitFor();
+    await page.getByLabel('我已在官方公告核对本场活动、开售时间、时区及来源').check();
+    await page.getByLabel('来源网址').fill('https://detail.damai.cn/new-announcement');
+    assert.equal(
+      await page.getByLabel('我已在官方公告核对本场活动、开售时间、时区及来源').isChecked(),
+      false,
+      '来源变更后必须重新核对',
+    );
+    await page.getByLabel('我已在官方公告核对本场活动、开售时间、时区及来源').check();
     await page.getByRole('button', { name: '保存机会' }).evaluate((button) => {
       button.click();
       button.click();
     });
     await page.locator('.opportunity-time').getByText('2026/09/20 12:00').waitFor();
     assert.equal(await page.locator('.opportunity').count(), 1, '双击保存不应生成重复机会');
+    assert.equal(
+      await page.evaluate(async () =>
+        JSON.stringify(await window.ticket.list()).includes('演出 2026年10月1日 19:30'),
+      ),
+      false,
+      '粘贴的公告原文不应保存到任务库',
+    );
     await page.getByRole('button', { name: '编辑', exact: true }).click();
     await page.getByLabel('资格条件').fill('已核对本场资格');
     await page.getByRole('button', { name: '保存机会' }).click();

@@ -42,6 +42,16 @@ const { readFileSync } = require('node:fs');
     await page.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
     await page.getByRole('button', { name: '我的任务' }).click();
     await page.locator('.event-row').filter({ hasText: '浏览器启动测试' }).click();
+    await page.getByRole('button', { name: '添加机会' }).click();
+    await page.getByText('粘贴公告，辅助提取时间').click();
+    await page.getByLabel('官方公告文字').fill('公告正文：公开开售 2026-09-20 12:00');
+    await page
+      .getByRole('group', { name: '识别出的时间候选' })
+      .getByRole('button', { name: /2026-09-20 12:00/ })
+      .click();
+    await page.getByLabel('我已在官方公告核对本场活动、开售时间、时区及来源').check();
+    await page.getByRole('button', { name: '保存机会' }).click();
+    await page.locator('.opportunity-time').getByText('2026/09/20 12:00').waitFor();
     const officialPage = context.waitForEvent('page');
     await page.getByRole('button', { name: '打开官方网页' }).click();
     const opened = await officialPage;
@@ -55,6 +65,8 @@ const { readFileSync } = require('node:fs');
     await page.getByRole('button', { name: '下载任务备份' }).click();
     const backup = readFileSync(await (await backupDownload).path(), 'utf8');
     assert.equal(JSON.parse(backup).events.length, 1);
+    assert.equal(JSON.parse(backup).events[0].opportunities.length, 1);
+    assert.equal(backup.includes('公告正文：'), false);
     await page.evaluate(async () => {
       const [event] = await window.ticket.list();
       await window.ticket.remove(event.id);
