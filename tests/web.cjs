@@ -15,6 +15,20 @@ const { readFileSync } = require('node:fs');
   try {
     await page.goto(url);
     await page.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
+    await page.getByRole('button', { name: '发现演出' }).click();
+    await page
+      .getByLabel('演出关键词或大麦链接')
+      .fill('https://detail.damai.cn.evil.example/item.htm?id=1');
+    await page.getByRole('button', { name: '打开大麦活动' }).click();
+    await page.getByRole('status').getByText('请使用大麦官方活动详情链接').waitFor();
+    await context.route('https://search.damai.cn/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html', body: '<title>大麦官方搜索</title>' }),
+    );
+    await page.getByLabel('演出关键词或大麦链接').fill('邓紫棋 深圳');
+    const searchPage = context.waitForEvent('page');
+    await page.getByRole('button', { name: '在大麦搜索' }).click();
+    await (await searchPage).waitForURL(/search\.damai\.cn\/search\.htm\?keyword=/);
+    await page.getByRole('button', { name: '我的任务' }).click();
     await page.getByRole('button', { name: '新建任务' }).click();
     await page.getByLabel('活动名称').fill('浏览器启动测试');
     await page.getByLabel('场馆 / 城市').fill('上海');

@@ -9,6 +9,12 @@ import {
 import { join } from 'node:path';
 import type { BrowserState, BrowserTarget } from '../shared/browser';
 import { officialUrl } from '../shared/rules';
+import {
+  damaiDiscoveryUrl,
+  parseDamaiPublicDetail,
+  type DamaiPublicFields,
+  type DiscoveredEvent,
+} from '../shared/discovery';
 
 export class OfficialBrowserManager {
   private window: BrowserWindow | null = null;
@@ -90,9 +96,71 @@ export class OfficialBrowserManager {
     return Boolean(this.window && !this.window.isDestroyed() && this.target?.platform === platform);
   }
 
+  openDiscovery(input: string): void {
+    const url = damaiDiscoveryUrl(input);
+    this.open({
+      mode: 'discovery',
+      title: '搜索大麦演出',
+      platform: 'damai',
+      url,
+      query: input.trim(),
+    });
+  }
+
+  inspectCurrent(sender: WebContents): Promise<DiscoveredEvent> {
+    return this.forShell(sender, async () => {
+      if (this.target?.mode !== 'discovery' || !this.view)
+        throw new Error('请先从发现演出进入官方搜索');
+      const contents = this.view.webContents;
+      const url = contents.getURL();
+      if (!/^https:\/\/detail\.damai\.cn\/item\.htm\?/.test(url))
+        throw new Error('请先打开大麦活动详情页，再识别公开信息');
+      const raw = (await contents.executeJavaScript(`(() => {
+        const text = (selector) => document.querySelector(selector)?.textContent?.trim() || '';
+        const notice = text('.notice0');
+        return {
+          pageUrl: location.href,
+          title: text('.hd .title span'),
+          dateText: text('.hd .time'),
+          venueText: text('.hd .addr'),
+          appOnly: document.body?.innerText?.includes('该渠道不支持购买') || false,
+          limitText: notice.match(/每笔订单最多购买[^。]{0,120}。/)?.[0] || ''
+        };
+      })()`)) as Partial<DamaiPublicFields> & { pageUrl?: string };
+      return parseDamaiPublicDetail(String(raw?.pageUrl ?? ''), {
+        title: String(raw?.title ?? ''),
+        dateText: String(raw?.dateText ?? ''),
+        venueText: String(raw?.venueText ?? ''),
+        appOnly: raw?.appOnly === true,
+        limitText: String(raw?.limitText ?? ''),
+      });
+    });
+  }
+
   open(target: BrowserTarget): void {
     if (this.window && !this.window.isDestroyed()) {
-      if (this.target?.eventId !== target.eventId || this.target.url !== target.url)
+      if (this.target?.mode === 'discovery' && target.mode === 'discovery') {
+        const changed = this.target.url !== target.url;
+        this.target = target;
+        this.error = '';
+        if (changed && this.view)
+          void this.view.webContents.loadURL(target.url).catch((error: unknown) => {
+            if (this.target?.url !== target.url || String(error).includes('ERR_ABORTED')) return;
+            this.error = error instanceof Error ? error.message : '大麦页面无法加载';
+            this.publish();
+          });
+        this.publish();
+        if (this.window.isMinimized()) this.window.restore();
+        this.window.focus();
+        return;
+      }
+      if (
+        this.target?.mode !== target.mode ||
+        this.target.url !== target.url ||
+        (this.target.mode === 'event' &&
+          target.mode === 'event' &&
+          this.target.eventId !== target.eventId)
+      )
         throw new Error(
           '另一个官方网页会话正在打开。请先在该窗口中完成操作或手动关闭，避免误刷新队列。',
         );

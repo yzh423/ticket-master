@@ -21,7 +21,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { EventForm } from './components/EventForm';
+import { DiscoverPage } from './components/DiscoverPage';
 import { OpportunityForm } from './components/OpportunityForm';
+import type { DiscoveredEvent } from '../shared/discovery';
 import { planActions } from '../shared/action-plan';
 import { marketComparisons } from '../shared/market';
 import {
@@ -49,7 +51,7 @@ import {
   type SaleOpportunity,
 } from '../shared/model';
 
-type Page = 'dashboard' | 'calendar' | 'guide' | 'device';
+type Page = 'dashboard' | 'discover' | 'calendar' | 'guide' | 'device';
 type DetailTab = 'sales' | 'ready' | 'tickets' | 'results';
 const guide: { id: keyof typeof platformLabels; text: string; source: string }[] = [
   {
@@ -198,6 +200,7 @@ export default function App() {
   const [detailStartTab, setDetailStartTab] = useState<DetailTab>('sales');
   const [page, setPage] = useState<Page>('dashboard');
   const [editing, setEditing] = useState<EventRecord | true | null>(null);
+  const [discoverySeed, setDiscoverySeed] = useState<DiscoveredEvent | null>(null);
   const [saleEditor, setSaleEditor] = useState<SaleOpportunity | true | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -273,9 +276,16 @@ export default function App() {
     const unsubscribe = window.ticket.onChanged(() => {
       if (pendingMutations.current === 0) void reload();
     });
+    const unsubscribeDiscovery = window.ticket.onDiscovered((discovered) => {
+      setSelectedId(null);
+      setPage('discover');
+      setDiscoverySeed(discovered);
+      setEditing(true);
+    });
     return () => {
       window.clearInterval(timer);
       unsubscribe();
+      unsubscribeDiscovery();
     };
   }, []);
   function toggleTheme() {
@@ -296,6 +306,7 @@ export default function App() {
         const next = await mutationQueue(event.id, (current) => mergeRuleEdit(current, event));
         openEvent(next.id);
         setEditing(null);
+        setDiscoverySeed(null);
         setSaleEditor(null);
       } finally {
         pendingMutations.current--;
@@ -306,6 +317,7 @@ export default function App() {
       await reload();
       openEvent(next.id);
       setEditing(null);
+      setDiscoverySeed(null);
       setSaleEditor(null);
     }
   }
@@ -413,6 +425,15 @@ export default function App() {
         </div>
         <nav aria-label="主导航" className="nav">
           <button
+            className={page === 'discover' && !selected ? 'active' : ''}
+            onClick={() => {
+              setPage('discover');
+              setSelectedId(null);
+            }}
+          >
+            <Search size={18} /> 发现演出
+          </button>
+          <button
             className={page === 'dashboard' ? 'active' : ''}
             onClick={() => {
               setPage('dashboard');
@@ -464,15 +485,17 @@ export default function App() {
             购票工作台 <ChevronRight size={14} />{' '}
             {selected
               ? selected.title
-              : page === 'calendar'
-                ? '销售日历'
-                : page === 'guide'
-                  ? '平台规则'
-                  : page === 'device'
-                    ? web
-                      ? '网页版本说明'
-                      : '设备与会话'
-                    : '我的任务'}
+              : page === 'discover'
+                ? '发现演出'
+                : page === 'calendar'
+                  ? '销售日历'
+                  : page === 'guide'
+                    ? '平台规则'
+                    : page === 'device'
+                      ? web
+                        ? '网页版本说明'
+                        : '设备与会话'
+                      : '我的任务'}
           </span>
           <div className="topbar-actions">
             <button
@@ -523,6 +546,8 @@ export default function App() {
               onOpenInside={openInside}
               onReference={openReference}
             />
+          ) : page === 'discover' ? (
+            <DiscoverPage web={web} />
           ) : page === 'dashboard' ? (
             <>
               <div className="page-heading">
@@ -531,9 +556,20 @@ export default function App() {
                   <h1>把每次机会，准备成一次有效尝试。</h1>
                   <p>记录固定场次和预算，提前检查资格与官方销售阶段。排队和下单仍在原平台完成。</p>
                 </div>
-                <button className="button primary" onClick={() => setEditing(true)}>
-                  <Plus size={18} /> 新建任务
-                </button>
+                <div className="button-row">
+                  <button className="button secondary" onClick={() => setPage('discover')}>
+                    <Search size={18} /> 搜索演出
+                  </button>
+                  <button
+                    className="button primary"
+                    onClick={() => {
+                      setDiscoverySeed(null);
+                      setEditing(true);
+                    }}
+                  >
+                    <Plus size={18} /> 新建任务
+                  </button>
+                </div>
               </div>
               {pendingOrders[0] && (
                 <section className="payment-deadline home-payment" aria-label="待支付订单">
@@ -1014,9 +1050,14 @@ export default function App() {
       </main>
       {editing && (
         <EventForm
+          key={editing === true ? (discoverySeed?.eventUrl ?? 'new-event') : editing.id}
           initial={editing === true ? undefined : editing}
+          seed={editing === true ? (discoverySeed ?? undefined) : undefined}
           onSave={save}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            setDiscoverySeed(null);
+          }}
         />
       )}{' '}
       {saleEditor && selected && (

@@ -251,6 +251,76 @@ button:focus-visible {
   padding: 12px;
   border-radius: 7px;
 }
+.discovery-guide {
+  display: grid;
+  gap: 10px;
+  margin: 2px 0 20px;
+}
+.discovery-guide div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #c7dcdd;
+  font-size: 12px;
+}
+.discovery-guide b {
+  width: 23px;
+  height: 23px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #234b46;
+  color: #7ee2ce;
+  font-size: 11px;
+}
+.discovery-inspect,
+.discovery-preview button {
+  width: 100%;
+  min-height: 39px;
+  border: 0;
+  border-radius: 7px;
+  background: #67dbc1;
+  color: #102d2d;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.discovery-inspect:hover,
+.discovery-preview button:hover {
+  background: #8bebd5;
+}
+.discovery-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  border: 1px solid #3d635e;
+  background: #142e32;
+  color: #eafdf8;
+  border-radius: 9px;
+  padding: 14px;
+}
+.discovery-preview strong {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.discovery-preview p {
+  margin: 0;
+  color: #a9c9c7;
+  font-size: 11px;
+}
+.discovery-preview em {
+  color: #ffd5a1;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.5;
+}
+.discovery-preview button {
+  margin-top: 6px;
+}
 .browser-rule svg {
   flex: none;
 }
@@ -372,6 +442,33 @@ button:focus-visible {
   .browser-sidecar {
     background: #f7f9fc;
     border-color: #dbe4ee;
+  }
+  .discovery-guide div {
+    color: #355668;
+  }
+  .discovery-guide b {
+    background: #e3f1eb;
+    color: #286d59;
+  }
+  .discovery-inspect,
+  .discovery-preview button {
+    background: #205c4b;
+    color: #fff;
+  }
+  .discovery-inspect:hover,
+  .discovery-preview button:hover {
+    background: #28755e;
+  }
+  .discovery-preview {
+    background: #eaf3ed;
+    border-color: #c1d9cb;
+    color: #1c4738;
+  }
+  .discovery-preview p {
+    color: #426552;
+  }
+  .discovery-preview em {
+    color: #8e5918;
   }
   .micro-label {
     color: #316fa8;

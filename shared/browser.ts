@@ -2,7 +2,8 @@ import type { EventRecord, PlatformId, Tier } from './model';
 import { saleLabels } from './model';
 import { officialUrl } from './rules';
 
-export type BrowserTarget = {
+export type EventBrowserTarget = {
+  mode: 'event';
   eventId: string;
   title: string;
   platform: PlatformId;
@@ -13,6 +14,16 @@ export type BrowserTarget = {
   tiers: Tier[];
   opportunity: string | null;
 };
+
+export type DiscoveryBrowserTarget = {
+  mode: 'discovery';
+  title: string;
+  platform: 'damai';
+  url: string;
+  query: string;
+};
+
+export type BrowserTarget = EventBrowserTarget | DiscoveryBrowserTarget;
 
 export type BrowserState = {
   target: BrowserTarget;
@@ -29,7 +40,7 @@ export function resolveBrowserTarget(
   events: EventRecord[],
   eventId: string,
   opportunityId?: string,
-): BrowserTarget {
+): EventBrowserTarget {
   const event = events.find((item) => item.id === eventId);
   if (!event) throw new Error('任务已不存在，请返回列表重新选择');
   const sale = opportunityId
@@ -40,6 +51,7 @@ export function resolveBrowserTarget(
   if (!url) throw new Error('本场未设置可用的官方网页入口，请使用原生 App');
   if (!officialUrl(event.platform, url)) throw new Error('该网址未通过平台官方域名检查');
   return {
+    mode: 'event',
     eventId: event.id,
     title: event.title,
     platform: event.platform,

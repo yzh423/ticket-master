@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Info, Plus, Trash2, X } from 'lucide-react';
+import type { DiscoveredEvent } from '../../shared/discovery';
 import {
   defaultChecklist,
   platformLabels,
@@ -13,27 +14,33 @@ import { Temporal } from '@js-temporal/polyfill';
 const today = () => Temporal.Now.plainDateISO().toString();
 export function EventForm({
   initial,
+  seed,
   onSave,
   onClose,
 }: {
   initial?: EventRecord;
+  seed?: DiscoveredEvent;
   onSave: (event: EventRecord) => Promise<void>;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [platform, setPlatform] = useState<PlatformId>(initial?.platform ?? 'damai');
-  const [venue, setVenue] = useState(initial?.venue ?? '');
-  const [sessionLocal, setSessionLocal] = useState(initial?.sessionLocal ?? '');
+  const [title, setTitle] = useState(initial?.title ?? seed?.title ?? '');
+  const [platform, setPlatform] = useState<PlatformId>(
+    initial?.platform ?? seed?.platform ?? 'damai',
+  );
+  const [venue, setVenue] = useState(initial?.venue ?? seed?.venue ?? '');
+  const [sessionLocal, setSessionLocal] = useState(
+    initial?.sessionLocal ?? seed?.sessionLocal ?? '',
+  );
   const [timeZone, setTimeZone] = useState(initial?.timeZone ?? 'Asia/Shanghai');
   const [currency, setCurrency] = useState(initial?.currency ?? 'CNY');
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
-  const [budget, setBudget] = useState(initial?.budget ?? 1000);
+  const [budget, setBudget] = useState<number | ''>(initial?.budget ?? (seed ? '' : 1000));
   const [owner, setOwner] = useState(initial?.owner ?? '本人');
   const [tiers, setTiers] = useState<Tier[]>(initial?.tiers ?? [{ label: '', unitPrice: null }]);
-  const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? '');
-  const [sourceUrl, setSourceUrl] = useState(initial?.sourceUrl ?? '');
+  const [eventUrl, setEventUrl] = useState(initial?.eventUrl ?? seed?.eventUrl ?? '');
+  const [sourceUrl, setSourceUrl] = useState(initial?.sourceUrl ?? seed?.sourceUrl ?? '');
   const [verifiedAt, setVerifiedAt] = useState(initial?.verifiedAt ?? today());
-  const [ruleNote, setRuleNote] = useState(initial?.ruleNote ?? '');
+  const [ruleNote, setRuleNote] = useState(initial?.ruleNote ?? seed?.ruleNote ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
@@ -57,7 +64,7 @@ export function EventForm({
         sessionAt: at,
         currency: currency.trim().toUpperCase(),
         quantity,
-        budget,
+        budget: Number(budget),
         owner: owner.trim(),
         tiers: tiers.map((t) => ({ label: t.label.trim(), unitPrice: t.unitPrice })),
         eventUrl: eventUrl.trim(),
@@ -104,6 +111,19 @@ export function EventForm({
             <X size={19} />
           </button>
         </div>
+        {seed && (
+          <div className="import-summary" role="status">
+            <Info size={18} />
+            <div>
+              <strong>已从大麦公开页面带入活动信息</strong>
+              <p>
+                页面日期：{seed.dateHint || '未显示明确日期'}。
+                {seed.appOnly ? '该项目提示在大麦 App 下单。' : '购票渠道仍需核对。'}
+                请确认下方固定场次、所在地时区、人数、票档与总预算。
+              </p>
+            </div>
+          </div>
+        )}
         <form onSubmit={submit} className="form-grid">
           <label className="wide">
             活动名称
@@ -178,7 +198,7 @@ export function EventForm({
               min="1"
               step="0.01"
               value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
+              onChange={(e) => setBudget(e.target.value === '' ? '' : Number(e.target.value))}
             />
           </label>
           <label>

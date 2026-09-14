@@ -223,6 +223,25 @@ if (singleInstance)
         const target = resolveBrowserTarget(store.list(), eventId, opportunityId);
         officialBrowser.open(target);
       });
+      ipcMain.handle('official:discover', (event, input: string) => {
+        forMain(event.sender);
+        if (typeof input !== 'string') throw new Error('搜索内容无效');
+        officialBrowser.openDiscovery(input);
+      });
+      ipcMain.handle('browser:inspect-current', (event) =>
+        officialBrowser.inspectCurrent(event.sender),
+      );
+      ipcMain.handle('browser:use-current', async (event, expectedUrl: string) => {
+        const discovered = await officialBrowser.inspectCurrent(event.sender);
+        if (discovered.eventUrl !== expectedUrl)
+          throw new Error('活动页面已变化，请重新识别当前活动');
+        if (!window || window.isDestroyed()) throw new Error('主窗口已关闭');
+        window.webContents.send('discovery:selected', discovered);
+        if (window.isMinimized()) window.restore();
+        window.show();
+        window.focus();
+        return discovered;
+      });
       ipcMain.handle('browser:clear-data', async (event, platform: PlatformId) => {
         forMain(event.sender);
         if (!Object.hasOwn(platformLabels, platform) || platform === 'other')

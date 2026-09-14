@@ -1,5 +1,6 @@
 import type { EventRecord, PlatformId } from '../shared/model';
 import type { BrowserState } from '../shared/browser';
+import type { DiscoveredEvent } from '../shared/discovery';
 declare global {
   interface Window {
     ticket: {
@@ -13,6 +14,8 @@ declare global {
       openReference(eventId: string, opportunityId?: string): Promise<void>;
       openKnowledgeSource(id: string): Promise<void>;
       openInside(eventId: string, opportunityId?: string): Promise<void>;
+      discover(input: string): Promise<void>;
+      onDiscovered(callback: (event: DiscoveredEvent) => void): () => void;
       clearBrowserData(platform: PlatformId): Promise<void>;
       usbStatus(): Promise<string>;
       launchDamai(): Promise<string>;
@@ -26,6 +29,8 @@ declare global {
       forward(): Promise<void>;
       close(): Promise<void>;
       external(): Promise<void>;
+      inspectCurrent(): Promise<DiscoveredEvent>;
+      useCurrent(expectedUrl: string): Promise<DiscoveredEvent>;
       onChanged(callback: (state: BrowserState) => void): () => void;
     };
   }

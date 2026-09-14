@@ -46,6 +46,36 @@ async function contrastRatio(locator) {
       if (message.type() === 'error') errors.push(message.text());
     });
     await page.getByRole('heading', { name: '把每次机会，准备成一次有效尝试。' }).waitFor();
+    await page.getByRole('button', { name: '发现演出' }).click();
+    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    await page.getByLabel('演出关键词或大麦链接').fill('邓紫棋 深圳');
+    const discoverWindow = app.waitForEvent('window', {
+      predicate: (candidate) => candidate.url().includes('browser.html'),
+    });
+    await page.getByRole('button', { name: '在大麦搜索' }).click();
+    const discoverBrowser = await discoverWindow;
+    await discoverBrowser.getByRole('button', { name: '识别当前活动' }).waitFor();
+    const discoveryView = await app.evaluate(({ BrowserWindow }) => {
+      const holder = BrowserWindow.getAllWindows().find((item) =>
+        item.getTitle().includes('官方网页工作区'),
+      );
+      const child = holder?.contentView.children[0];
+      return child && 'webContents' in child ? child.webContents.id : null;
+    });
+    await page.getByLabel('演出关键词或大麦链接').fill('上海 音乐节');
+    await page.getByRole('button', { name: '在大麦搜索' }).click();
+    const discoveryViewAfter = await app.evaluate(({ BrowserWindow }) => {
+      const holder = BrowserWindow.getAllWindows().find((item) =>
+        item.getTitle().includes('官方网页工作区'),
+      );
+      const child = holder?.contentView.children[0];
+      return child && 'webContents' in child ? child.webContents.id : null;
+    });
+    assert.equal(discoveryViewAfter, discoveryView, '再次搜索应复用已有发现会话');
+    await discoverBrowser.getByRole('button', { name: '识别当前活动' }).click();
+    await discoverBrowser.getByText('请先打开大麦活动详情页').waitFor();
+    await discoverBrowser.getByRole('button', { name: '关闭网页工作区' }).click();
+    await page.getByRole('button', { name: '我的任务' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     await page.getByRole('button', { name: '切换深色模式' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
@@ -113,7 +143,12 @@ async function contrastRatio(locator) {
       .getByRole('status')
       .getByText('请先关闭该平台的网页工作区', { exact: false })
       .waitFor();
-    await browser.getByRole('button', { name: '关闭网页工作区' }).click();
+    await browser
+      .getByRole('button', { name: '关闭网页工作区' })
+      .click()
+      .catch((error) => {
+        if (!browser.isClosed()) throw error;
+      });
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '清除该平台网页数据' }).click();
     await page.getByRole('status').getByText('已清除。再次打开该平台', { exact: false }).waitFor();
