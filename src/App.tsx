@@ -506,43 +506,25 @@ export default function App() {
               setActiveOpportunityId(null);
             }}
           >
-            <Search size={18} /> 发现演出
+            <Search size={18} /> 找票
           </button>
           <button
-            className={page === 'dashboard' ? 'active' : ''}
+            className={page === 'dashboard' || page === 'calendar' ? 'active' : ''}
             onClick={() => {
               setPage('dashboard');
               setSelectedId(null);
             }}
           >
-            <ListChecks size={18} /> 我的任务
+            <ListChecks size={18} /> 任务
           </button>
           <button
-            className={page === 'calendar' ? 'active' : ''}
-            onClick={() => {
-              setPage('calendar');
-              setSelectedId(null);
-            }}
-          >
-            <CalendarDays size={18} /> 销售日历
-          </button>
-          <button
-            className={page === 'guide' ? 'active' : ''}
-            onClick={() => {
-              setPage('guide');
-              setSelectedId(null);
-            }}
-          >
-            <ShieldCheck size={18} /> 平台规则
-          </button>
-          <button
-            className={page === 'device' ? 'active' : ''}
+            className={page === 'guide' || page === 'device' ? 'active' : ''}
             onClick={() => {
               setPage('device');
               setSelectedId(null);
             }}
           >
-            <Smartphone size={18} /> {web ? '网页版本说明' : '设备与会话'}
+            <Settings2 size={18} /> 设置
           </button>
         </nav>
         <div className="side-note">
@@ -561,16 +543,10 @@ export default function App() {
             {selected
               ? selected.title
               : page === 'discover'
-                ? '发现演出'
-                : page === 'calendar'
-                  ? '销售日历'
-                  : page === 'guide'
-                    ? '平台规则'
-                    : page === 'device'
-                      ? web
-                        ? '网页版本说明'
-                        : '设备与会话'
-                      : '我的任务'}
+                ? '找票'
+                : page === 'dashboard' || page === 'calendar'
+                  ? '任务'
+                  : '设置'}
           </span>
           <div className="topbar-actions">
             <button
@@ -654,6 +630,9 @@ export default function App() {
                   <p>选好票档和人数，提前检查资格与官方销售阶段。排队和下单仍在原平台完成。</p>
                 </div>
                 <div className="button-row">
+                  <button className="button ghost" onClick={() => setPage('calendar')}>
+                    <CalendarDays size={18} /> 按时间
+                  </button>
                   <button className="button secondary" onClick={() => setPage('discover')}>
                     <Search size={18} /> 搜索演出
                   </button>
@@ -907,10 +886,13 @@ export default function App() {
             <>
               <div className="page-heading">
                 <div>
-                  <span className="eyebrow">SALES & WAITLIST</span>
-                  <h1>销售日历</h1>
+                  <span className="eyebrow">按时间查看</span>
+                  <h1>任务时间线</h1>
                   <p>只显示你录入且附有来源的机会，时间同时保留活动所在地时区。</p>
                 </div>
+                <button className="button ghost" onClick={() => setPage('dashboard')}>
+                  <ListChecks size={18} /> 任务列表
+                </button>
               </div>
               {upcoming.length ? (
                 <div className="timeline big-timeline">
@@ -950,6 +932,12 @@ export default function App() {
             </>
           ) : page === 'guide' ? (
             <>
+              <div className="settings-switch" role="tablist" aria-label="设置类别">
+                <button role="tab" aria-selected="false" onClick={() => setPage('device')}>
+                  {web ? '应用与数据' : '手机与数据'}
+                </button>
+                <button role="tab" aria-selected="true">平台说明</button>
+              </div>
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">PLATFORM NOTES</span>
@@ -1019,6 +1007,12 @@ export default function App() {
             </>
           ) : web ? (
             <>
+              <div className="settings-switch" role="tablist" aria-label="设置类别">
+                <button role="tab" aria-selected="true">应用与数据</button>
+                <button role="tab" aria-selected="false" onClick={() => setPage('guide')}>
+                  平台说明
+                </button>
+              </div>
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">WEB EDITION</span>
@@ -1068,6 +1062,12 @@ export default function App() {
             </>
           ) : (
             <>
+              <div className="settings-switch" role="tablist" aria-label="设置类别">
+                <button role="tab" aria-selected="true">手机与数据</button>
+                <button role="tab" aria-selected="false" onClick={() => setPage('guide')}>
+                  平台说明
+                </button>
+              </div>
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">ANDROID BRIDGE</span>

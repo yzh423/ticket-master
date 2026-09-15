@@ -46,6 +46,13 @@ async function contrastRatio(locator) {
       if (message.type() === 'error') errors.push(message.text());
     });
     await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    const mainNavigation = page.getByRole('navigation', { name: '主导航' });
+    for (const name of ['找票', '任务', '设置']) {
+      assert.equal(await mainNavigation.getByRole('button', { name, exact: true }).count(), 1);
+    }
+    for (const name of ['销售日历', '平台规则', '设备与会话']) {
+      assert.equal(await mainNavigation.getByRole('button', { name, exact: true }).count(), 0);
+    }
     await page.getByRole('button', { name: /更多平台 · 20/ }).click();
     await page.getByRole('button', { name: /StubHub/ }).waitFor();
     await page.getByRole('button', { name: /收起平台/ }).click();
@@ -144,7 +151,7 @@ async function contrastRatio(locator) {
       .getByRole('button', { name: '全部' })
       .click();
     await page.getByRole('button', { name: '关闭站内网页' }).click();
-    await page.getByRole('button', { name: '我的任务' }).click();
+    await page.getByRole('button', { name: '任务', exact: true }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     await page.getByRole('button', { name: '切换深色模式' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
@@ -341,7 +348,7 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '返回任务' }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '删除本地任务' }).click();
-    await page.getByRole('button', { name: '我的任务' }).click();
+    await page.getByRole('button', { name: '任务', exact: true }).click();
     await page.getByRole('button', { name: '新建任务' }).click();
     await page.getByLabel('活动名称').fill('测试巡演 · 上海站');
     await page.getByLabel('场馆 / 城市').fill('上海体育馆');
@@ -384,20 +391,20 @@ async function contrastRatio(locator) {
     });
     assert.equal(viewAfter, viewBefore, '再次打开同一任务不应重建网页会话');
     await page.screenshot({ path: join(artifacts, 'browser.png'), fullPage: true });
-    await page.getByRole('button', { name: '设备与会话' }).click();
+    await page.getByRole('button', { name: '设置', exact: true }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '清除该平台网页数据' }).click();
     await page
       .getByRole('status')
       .getByText('请先关闭该平台的网页工作区', { exact: false })
       .waitFor();
-    await page.getByRole('button', { name: '发现演出' }).click();
+    await page.getByRole('button', { name: '找票', exact: true }).click();
     await page.getByRole('button', { name: '关闭站内网页' }).click();
-    await page.getByRole('button', { name: '设备与会话' }).click();
+    await page.getByRole('button', { name: '设置', exact: true }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '清除该平台网页数据' }).click();
     await page.getByRole('status').getByText('已清除。再次打开该平台', { exact: false }).waitFor();
-    await page.getByRole('button', { name: '我的任务' }).click();
+    await page.getByRole('button', { name: '任务', exact: true }).click();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     await page.getByRole('button', { name: '添加机会' }).click();
     await page.getByText('粘贴公告，辅助提取时间').click();
@@ -503,9 +510,10 @@ async function contrastRatio(locator) {
     await page.getByText('网页仅用于核对公告', { exact: false }).waitFor();
     await page.screenshot({ path: join(artifacts, 'app-only.png') });
     await page.getByRole('button', { name: '返回任务列表' }).click();
-    await page.getByRole('button', { name: '销售日历' }).click();
-    await page.getByRole('heading', { name: '销售日历' }).waitFor();
-    await page.getByRole('button', { name: '平台规则' }).click();
+    await page.getByRole('button', { name: '按时间' }).click();
+    await page.getByRole('heading', { name: '任务时间线' }).waitFor();
+    await page.getByRole('button', { name: '设置', exact: true }).click();
+    await page.getByRole('tab', { name: '平台说明' }).click();
     await page.getByRole('heading', { name: '平台规则与能力边界' }).waitFor();
     await page.getByRole('region', { name: '同类工具能力对照' }).getByText('Bandsintown').waitFor();
     await page.screenshot({ path: join(artifacts, 'comparison.png'), fullPage: true });
@@ -519,7 +527,7 @@ async function contrastRatio(locator) {
       true,
       '未收录的外部资料不得打开',
     );
-    await page.getByRole('button', { name: '设备与会话' }).click();
+    await page.getByRole('tab', { name: '手机与数据' }).click();
     await page.getByRole('heading', { name: '设备与网页会话' }).waitFor();
     await page.getByRole('button', { name: '检查连接' }).click();
     await page
@@ -548,7 +556,7 @@ async function contrastRatio(locator) {
   try {
     const page = await restarted.firstWindow();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
-    await page.getByRole('button', { name: '我的任务' }).click();
+    await page.getByRole('button', { name: '任务', exact: true }).click();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     await page.getByRole('tab', { name: /票档判断/ }).click();
     await page.getByText('已有待完成或已确认订单').waitFor();
@@ -561,7 +569,7 @@ async function contrastRatio(locator) {
   try {
     const page = await recovered.firstWindow();
     await page.getByRole('alert').getByText('已从本机备份载入任务', { exact: false }).waitFor();
-    await page.getByRole('button', { name: '我的任务' }).click();
+    await page.getByRole('button', { name: '任务', exact: true }).click();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).waitFor();
     await page.locator('.event-row').filter({ hasText: '测试巡演 · 上海站' }).click();
     page.once('dialog', (dialog) => dialog.accept());
@@ -575,3 +583,4 @@ async function contrastRatio(locator) {
   console.error(error);
   process.exitCode = 1;
 });
+
