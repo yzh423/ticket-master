@@ -1166,6 +1166,14 @@ function EventDetail({
   const pendingDeadline = pendingPaymentAttempts(event.attempts)
     .filter((attempt) => attempt.paymentDeadline)
     .sort((a, b) => a.paymentDeadline!.localeCompare(b.paymentDeadline!))[0]?.paymentDeadline;
+  const focusSale = event.opportunities
+    .filter((item) => item.status !== 'completed' && item.status !== 'missed')
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+  const focusDelta = focusSale ? Date.parse(focusSale.startsAt) - clock : null;
+  const focusMode = Boolean(
+    pendingDeadline ||
+    (focusDelta !== null && focusDelta >= -2 * 60 * 60_000 && focusDelta <= 7 * 24 * 60 * 60_000),
+  );
   const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const platformGuidance = guide.find((item) => item.id === event.platform);
   const decision = chooseTier(
@@ -1234,7 +1242,7 @@ function EventDetail({
     }
   }
   return (
-    <>
+    <div className={`event-detail${focusMode ? ' focus-mode' : ''}`}>
       <button className="back-link" onClick={onBack}>
         ← 返回任务列表
       </button>
@@ -1285,6 +1293,45 @@ function EventDetail({
           </button>
         </div>
       </div>
+      {focusMode && (
+        <section className="focus-status" aria-label="购票专注状态">
+          <div>
+            <span>
+              {pendingDeadline ? '待支付' : focusDelta && focusDelta > 0 ? '距离开始' : '已开始'}
+            </span>
+            <strong>
+              {pendingDeadline
+                ? '已有订单需要处理'
+                : focusDelta && focusDelta > 0
+                  ? `${Math.floor(focusDelta / 86400000)}天 ${String(Math.floor((focusDelta % 86400000) / 3600000)).padStart(2, '0')}:${String(Math.floor((focusDelta % 3600000) / 60000)).padStart(2, '0')}`
+                  : `${focusSale ? saleLabels[focusSale.type] : '官方机会'}进行中`}
+            </strong>
+            <small>
+              {pendingDeadline
+                ? `以官方订单页倒计时为准 · 本机记录 ${timeText(pendingDeadline, localZone)}`
+                : focusSale
+                  ? `${saleLabels[focusSale.type]} · ${timeText(focusSale.startsAt, focusSale.timeZone)} ${focusSale.timeZone}`
+                  : '以官方页面状态为准'}
+            </small>
+          </div>
+          <button
+            className="button primary"
+            onClick={() => {
+              if (pendingDeadline) setDetailTab('results');
+              else if (eventChannel === 'app_required' && event.platform === 'damai')
+                void onLaunchDamai().then(setPhoneStatus);
+              else void onOpenInside(event.id, focusSale?.id);
+            }}
+          >
+            {pendingDeadline
+              ? '处理订单'
+              : eventChannel === 'app_required'
+                ? '前往官方 App'
+                : '前往官方网页'}
+            <ArrowRight size={16} />
+          </button>
+        </section>
+      )}
       {event.sessions?.length ? (
         <div className="saved-sessions" role="list" aria-label="已选择的演出场次">
           {event.sessions.map((session) => (
@@ -1786,6 +1833,6 @@ function EventDetail({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

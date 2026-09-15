@@ -233,6 +233,60 @@ a:focus-visible {
   font-size: 14px;
 }
 
+.focus-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin: 0 0 22px;
+  padding: 18px 20px;
+  color: #fff;
+  background: #1d1d1f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--app-radius-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .focus-status {
+  background: #2c2c2e;
+}
+
+.focus-status > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.focus-status span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.focus-status strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-status small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-status .button.primary {
+  flex: 0 0 auto;
+  color: #fff;
+  background: var(--app-accent-fill);
+  border-color: transparent;
+}
+
 .button {
   min-height: 44px;
   padding: 0 16px;
@@ -775,6 +829,20 @@ textarea::placeholder {
   .task-priority {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .focus-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .focus-status strong,
+  .focus-status small {
+    white-space: normal;
+  }
+
+  .focus-status .button {
+    width: 100%;
   }
 }
 

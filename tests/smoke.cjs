@@ -57,6 +57,7 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: /全部 20 个平台/ }).click();
     await page.getByRole('button', { name: /StubHub/ }).waitFor();
     await page.getByRole('button', { name: /收起平台/ }).click();
+    await page.getByRole('button', { name: /选择平台/ }).click();
     await page.screenshot({ path: join(artifacts, 'discover-latest.png') });
     await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋 深圳');
     await page.getByRole('button', { name: '搜索', exact: true }).click();
@@ -89,6 +90,7 @@ async function contrastRatio(locator) {
       }
     });
     assert.match(inspectError, /请先/);
+    await page.getByRole('button', { name: /选择平台/ }).click();
     await page.getByRole('button', { name: /Ticketmaster/ }).click();
     await page.getByLabel('演出关键词或官方活动链接').fill('Coldplay');
     await page.getByRole('button', { name: '搜索', exact: true }).click();
@@ -441,6 +443,15 @@ async function contrastRatio(locator) {
       button.click();
     });
     await page.locator('.opportunity-time').getByText('2026/09/20 12:00').waitFor();
+    await page.locator('.event-detail.focus-mode').waitFor();
+    await page
+      .getByRole('region', { name: '购票专注状态' })
+      .getByText(/距离开始|已开始/)
+      .waitFor();
+    await page
+      .getByRole('region', { name: '购票专注状态' })
+      .getByRole('button', { name: '前往官方网页' })
+      .waitFor();
     assert.equal(await page.locator('.opportunity').count(), 1, '双击保存不应生成重复机会');
     assert.equal(
       await page.evaluate(async () =>
@@ -496,6 +507,10 @@ async function contrastRatio(locator) {
       button.click();
     });
     await page.getByText('待支付订单即将截止').waitFor();
+    await page
+      .getByRole('region', { name: '购票专注状态' })
+      .getByText('已有订单需要处理')
+      .waitFor();
     assert.equal(await page.locator('.journal-row').count(), 1, '双击结果保存不应生成重复订单');
     await page.screenshot({ path: join(artifacts, 'payment.png'), fullPage: true });
     await page.getByRole('tab', { name: /票档判断/ }).click();
@@ -558,6 +573,14 @@ async function contrastRatio(locator) {
       ),
       true,
       '最小窗口宽度不应出现横向溢出',
+    );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    assert.equal(
+      await mainNavigation
+        .getByRole('button', { name: '找票', exact: true })
+        .evaluate((node) => Number.parseFloat(getComputedStyle(node).transitionDuration) < 0.001),
+      true,
+      '减少动态效果偏好应关闭可感知的过渡动画',
     );
     assert.deepEqual(errors, [], `渲染器错误: ${errors.join('; ')}`);
     console.log('UI smoke: 创建任务、机会、清单、票档和结果记录通过');
