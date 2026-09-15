@@ -39,7 +39,6 @@ import {
   lastPerformanceAt,
   parseLocalInstant,
   pendingPaymentAttempts,
-  preparationGaps,
 } from '../shared/rules';
 import {
   checklistLabels,
@@ -242,23 +241,7 @@ export default function App() {
         .sort((a, b) => a.sale.startsAt.localeCompare(b.sale.startsAt)),
     [events, clock],
   );
-  const focusGaps = upcoming[0]
-    ? preparationGaps(upcoming[0].event.checklist, upcoming[0].sale.type)
-    : [];
-  const pendingOrders = events
-    .flatMap((event) =>
-      pendingPaymentAttempts(event.attempts).map((attempt) => ({ event, attempt })),
-    )
-    .sort((a, b) =>
-      (a.attempt.paymentDeadline ?? '9999').localeCompare(b.attempt.paymentDeadline ?? '9999'),
-    );
   const nextActions = useMemo(() => planActions(events, clock), [events, clock]);
-  const focusOrder = upcoming[0]
-    ? pendingPaymentAttempts(upcoming[0].event.attempts).length > 0
-    : false;
-  const focusChannel = upcoming[0]
-    ? effectivePurchaseChannel(upcoming[0].event, upcoming[0].sale)
-    : 'unknown';
   const [mobileActionMessage, setMobileActionMessage] = useState('');
 
   async function launchDamaiForTask(): Promise<string> {
@@ -645,197 +628,47 @@ export default function App() {
             <>
               <div className="page-heading">
                 <div>
-                  <span className="eyebrow">YOUR TICKETING DESK</span>
-                  <h1>把每次机会，准备成一次有效尝试。</h1>
-                  <p>选好票档和人数，提前检查资格与官方销售阶段。排队和下单仍在原平台完成。</p>
+                  <h1>任务</h1>
+                  <p>按下一步时间整理你的购票准备。</p>
                 </div>
                 <div className="button-row">
-                  <button className="button ghost" onClick={() => setPage('calendar')}>
-                    <CalendarDays size={18} /> 按时间
-                  </button>
+                  <div className="view-switch" role="tablist" aria-label="任务视图">
+                    <button role="tab" aria-selected="true">
+                      列表
+                    </button>
+                    <button role="tab" aria-selected="false" onClick={() => setPage('calendar')}>
+                      按时间
+                    </button>
+                  </div>
                   <button className="button secondary" onClick={() => setPage('discover')}>
-                    <Search size={18} /> 搜索演出
+                    <Search size={18} /> 找演出
                   </button>
+                </div>
+              </div>
+              {nextActions[0] && (
+                <section
+                  className={`task-priority${nextActions[0].kind === 'payment' ? ' urgent' : ''}`}
+                  aria-label="当前最重要的操作"
+                >
+                  <div>
+                    <span>{nextActions[0].kind === 'payment' ? '优先处理' : '下一步'}</span>
+                    <strong>{nextActions[0].title}</strong>
+                    <small>
+                      {nextActions[0].eventTitle} · {nextActions[0].detail}
+                    </small>
+                  </div>
                   <button
                     className="button primary"
-                    onClick={() => {
-                      setDiscoverySeed(null);
-                      setEditing(true);
-                    }}
+                    onClick={() => openEvent(nextActions[0].eventId, nextActions[0].target)}
                   >
-                    <Plus size={18} /> 新建任务
+                    {nextActions[0].kind === 'payment' ? '处理订单' : '继续准备'}
+                    <ArrowRight size={16} />
                   </button>
-                </div>
-              </div>
-              {pendingOrders[0] && (
-                <section className="payment-deadline home-payment" aria-label="待支付订单">
-                  <div>
-                    <strong>{pendingOrders[0].event.title} · 待支付订单</strong>
-                    <span>
-                      {pendingOrders[0].attempt.paymentDeadline
-                        ? Date.parse(pendingOrders[0].attempt.paymentDeadline) > clock
-                          ? `你记录的支付截止约剩 ${Math.ceil((Date.parse(pendingOrders[0].attempt.paymentDeadline) - clock) / 60_000)} 分钟`
-                          : '记录的截止时间已过，请立即核对官方订单状态'
-                        : '尚未记录支付截止时间，请以官方订单页倒计时为准'}
-                    </span>
-                  </div>
-                  <button
-                    className="button secondary"
-                    onClick={() => openEvent(pendingOrders[0].event.id, 'results')}
-                  >
-                    查看订单结果 <ArrowRight size={16} />
-                  </button>
-                </section>
-              )}
-              {upcoming[0] && (
-                <section className="focus-hero" aria-label="下一次官方机会">
-                  <div className="focus-copy">
-                    <span className="eyebrow">NEXT OFFICIAL WINDOW · 下一次机会</span>
-                    <span className="focus-platform">
-                      {platformLabels[upcoming[0].event.platform]} /{' '}
-                      {saleLabels[upcoming[0].sale.type]}
-                    </span>
-                    <h2>{upcoming[0].event.title}</h2>
-                    <p>
-                      {upcoming[0].sale.eligibility || '请核对本场资格与官方规则'} ·{' '}
-                      {timeText(upcoming[0].sale.startsAt, upcoming[0].sale.timeZone)}{' '}
-                      {upcoming[0].sale.timeZone}
-                      {' · '}
-                      {purchaseChannelLabels[focusChannel]}
-                    </p>
-                    <div className="focus-next-step">
-                      <strong>
-                        {focusOrder
-                          ? '已有订单需要先处理'
-                          : focusGaps.length
-                            ? `${focusGaps.length} 项准备待核对`
-                            : '准备清单已核对'}
-                      </strong>
-                      <span>
-                        {focusOrder
-                          ? '先核对官方订单与付款期限'
-                          : focusGaps.length
-                            ? `下一步：${checklistLabels[focusGaps[0]]}`
-                            : '按本场官方规则参与，保持原会话'}
-                      </span>
-                    </div>
-                    <div className="focus-actions">
-                      <button
-                        className="button primary"
-                        onClick={() =>
-                          openEvent(
-                            upcoming[0].event.id,
-                            focusOrder ? 'results' : focusGaps.length ? 'ready' : 'sales',
-                          )
-                        }
-                      >
-                        {focusOrder
-                          ? '处理已有订单'
-                          : focusGaps.length
-                            ? '先核对准备'
-                            : '查看官方机会'}{' '}
-                        <ArrowRight size={16} />
-                      </button>
-                      {!focusOrder &&
-                        focusChannel === 'app_required' &&
-                        upcoming[0].event.platform === 'damai' &&
-                        !web && (
-                          <button
-                            className="button ghost"
-                            onClick={() => void launchDamaiForTask()}
-                          >
-                            <Smartphone size={16} /> 在手机打开大麦 App
-                          </button>
-                        )}
-                      {!focusOrder &&
-                        focusChannel !== 'app_required' &&
-                        (upcoming[0].sale.url || upcoming[0].event.eventUrl) && (
-                          <button
-                            className="button ghost"
-                            onClick={() =>
-                              void openInside(upcoming[0].event.id, upcoming[0].sale.id)
-                            }
-                          >
-                            <ExternalLink size={16} /> {web ? '打开官方网页' : '内置官方网页'}
-                          </button>
-                        )}
-                    </div>
-                    {focusChannel === 'app_required' && upcoming[0].event.platform !== 'damai' && (
-                      <small>本次需官方 App；该平台尚无实测启动入口，请在手机手动打开。</small>
-                    )}
-                    {mobileActionMessage && <small role="status">{mobileActionMessage}</small>}
-                  </div>
-                  <div className="focus-clock">
-                    <span>
-                      {Date.parse(upcoming[0].sale.startsAt) > clock ? '距离开始' : '已开始'}
-                    </span>
-                    <strong>
-                      {Date.parse(upcoming[0].sale.startsAt) > clock
-                        ? `${Math.floor((Date.parse(upcoming[0].sale.startsAt) - clock) / 86400000)}天 ${String(Math.floor(((Date.parse(upcoming[0].sale.startsAt) - clock) % 86400000) / 3600000)).padStart(2, '0')}:${String(Math.floor(((Date.parse(upcoming[0].sale.startsAt) - clock) % 3600000) / 60000)).padStart(2, '0')}`
-                        : '当前机会'}
-                    </strong>
-                    <small>时间以活动官方页面为准</small>
-                  </div>
-                </section>
-              )}
-              <div className="summary-strip">
-                <div>
-                  <span>正在跟进</span>
-                  <strong>{events.length.toString().padStart(2, '0')}</strong>
-                  <small>个固定场次</small>
-                </div>
-                <div>
-                  <span>接下来</span>
-                  <strong>
-                    {upcoming.length
-                      ? timeText(upcoming[0].sale.startsAt, upcoming[0].sale.timeZone).slice(5, 16)
-                      : '—'}
-                  </strong>
-                  <small>
-                    {upcoming.length
-                      ? `${saleLabels[upcoming[0].sale.type]} · 当地时间`
-                      : '暂无已确认机会'}
-                  </small>
-                </div>
-                <div className="summary-advice">
-                  <Info size={18} />
-                  <span>
-                    任务只提醒有来源的开售与候补机会。软件关闭期间无法推送桌面通知，请保留平台原生提醒。
-                  </span>
-                </div>
-              </div>
-              {nextActions.length > 0 && (
-                <section className="action-board" aria-label="下一步行动">
-                  <div className="section-title action-board-title">
-                    <div>
-                      <span className="eyebrow">NEXT ACTIONS</span>
-                      <h2>下一步，先做这些</h2>
-                    </div>
-                    <small>依据已录入的规则与人工状态；不代表实时库存或排队优势</small>
-                  </div>
-                  <div className="action-grid">
-                    {nextActions.slice(0, 3).map((item) => (
-                      <button
-                        key={item.eventId}
-                        className={`action-card ${item.kind === 'payment' ? 'urgent' : ''}`}
-                        onClick={() => openEvent(item.eventId, item.target)}
-                      >
-                        <span className="action-card-top">
-                          <span>{item.kind === 'payment' ? '优先处理' : '待核对'}</span>
-                          <ArrowRight size={17} />
-                        </span>
-                        <strong>{item.title}</strong>
-                        <span className="action-event">{item.eventTitle}</span>
-                        <small>{item.detail}</small>
-                      </button>
-                    ))}
-                  </div>
                 </section>
               )}
               <div className="section-title list-title">
                 <div>
-                  <span className="eyebrow">TRACKED EVENTS</span>
-                  <h2>我的购票任务</h2>
+                  <h2>全部任务</h2>
                 </div>
                 <label className="search-box">
                   <Search size={16} />
@@ -893,10 +726,10 @@ export default function App() {
                     <Ticket size={27} />
                   </div>
                   <h3>{events.length ? '没有匹配的购票任务' : '先从一场确定的演出开始'}</h3>
-                  <p>填入场次、人数和官方规则来源，再补全销售时间。这里不会展示未经核实的库存。</p>
+                  <p>搜索演出后选择场次、票档和人数，其余资料会尽量自动带入。</p>
                   {!events.length && (
-                    <button className="button secondary" onClick={() => setEditing(true)}>
-                      <Plus size={17} /> 创建第一个任务
+                    <button className="button primary" onClick={() => setPage('discover')}>
+                      <Search size={17} /> 搜索第一场演出
                     </button>
                   )}
                 </div>
@@ -906,13 +739,17 @@ export default function App() {
             <>
               <div className="page-heading">
                 <div>
-                  <span className="eyebrow">按时间查看</span>
-                  <h1>任务时间线</h1>
+                  <h1>任务</h1>
                   <p>只显示你录入且附有来源的机会，时间同时保留活动所在地时区。</p>
                 </div>
-                <button className="button ghost" onClick={() => setPage('dashboard')}>
-                  <ListChecks size={18} /> 任务列表
-                </button>
+                <div className="view-switch" role="tablist" aria-label="任务视图">
+                  <button role="tab" aria-selected="false" onClick={() => setPage('dashboard')}>
+                    列表
+                  </button>
+                  <button role="tab" aria-selected="true">
+                    按时间
+                  </button>
+                </div>
               </div>
               {upcoming.length ? (
                 <div className="timeline big-timeline">
@@ -963,8 +800,8 @@ export default function App() {
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">PLATFORM NOTES</span>
-                  <h1>平台规则与能力边界</h1>
-                  <p>以下是通用提示。每个项目的官方公告和本场购票须知仍是最终依据。</p>
+                  <h1>设置</h1>
+                  <p>平台说明 · 每个项目的官方公告和购票须知仍是最终依据。</p>
                 </div>
               </div>
               <div className="guide-callout">
@@ -1040,7 +877,7 @@ export default function App() {
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">WEB EDITION</span>
-                  <h1>网页版本说明</h1>
+                  <h1>设置</h1>
                   <p>任务保存在当前浏览器的本地站点数据中，不会同步到 Windows 桌面版。</p>
                 </div>
               </div>
@@ -1056,9 +893,18 @@ export default function App() {
                   <ShieldCheck size={40} />
                 </div>
                 <div>
-                  <h2>任务备份与恢复</h2>
+                  <h2>通知与数据</h2>
                   <p>备份只包含候票台任务。导入前会校验全部记录，再一次性替换当前浏览器的数据。</p>
                   <div className="button-row">
+                    <button
+                      className="button ghost"
+                      onClick={() => {
+                        setDiscoverySeed(null);
+                        setEditing(true);
+                      }}
+                    >
+                      <Plus size={16} /> 手工录入任务
+                    </button>
                     <button className="button secondary" onClick={() => void downloadWebBackup()}>
                       下载任务备份
                     </button>
@@ -1097,7 +943,7 @@ export default function App() {
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">ANDROID BRIDGE</span>
-                  <h1>设备与网页会话</h1>
+                  <h1>设置</h1>
                   <p>
                     Android 手机可经 USB 打开已验证的原生
                     App，或发送官方网页链接；两种入口按本场规则区分。iPhone 请使用 Apple Devices
@@ -1110,7 +956,7 @@ export default function App() {
                   <Smartphone size={54} />
                 </div>
                 <div>
-                  <h2>USB 设备状态</h2>
+                  <h2>手机连接</h2>
                   <p className="preline">{usb}</p>
                   <div className="button-row">
                     <button
@@ -1159,7 +1005,7 @@ export default function App() {
                   <ShieldCheck size={40} />
                 </div>
                 <div>
-                  <h2>内置网页的登录数据</h2>
+                  <h2>官方会话</h2>
                   <p>
                     每个平台在本机使用独立的网页登录会话。清除后需重新登录，当前排队或结账页面不能继续使用。
                   </p>
@@ -1203,6 +1049,26 @@ export default function App() {
                     </button>
                   </div>
                   {browserDataStatus && <p role="status">{browserDataStatus}</p>}
+                </div>
+              </div>
+              <div className="device-panel session-panel">
+                <div className="device-illustration">
+                  <Bell size={40} />
+                </div>
+                <div>
+                  <h2>通知与数据</h2>
+                  <p>
+                    任务与官方网页登录数据只保存在本机。候票台运行时提醒已确认的销售机会；关闭后请依靠平台原生通知。
+                  </p>
+                  <button
+                    className="button ghost"
+                    onClick={() => {
+                      setDiscoverySeed(null);
+                      setEditing(true);
+                    }}
+                  >
+                    <Plus size={16} /> 手工录入任务
+                  </button>
                 </div>
               </div>
             </>

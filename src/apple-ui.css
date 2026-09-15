@@ -314,6 +314,103 @@ a:focus-visible {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.view-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--app-text) 7%, transparent);
+}
+
+.view-switch button {
+  min-height: 38px;
+  padding: 0 14px;
+  color: var(--app-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.view-switch button[aria-selected='true'] {
+  color: var(--app-text);
+  background: var(--app-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.task-priority {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-panel);
+}
+
+.task-priority.urgent {
+  border-color: color-mix(in srgb, var(--app-danger) 35%, var(--app-border));
+}
+
+.task-priority > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.task-priority span {
+  color: var(--app-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-priority.urgent span {
+  color: var(--app-danger);
+}
+
+.task-priority strong {
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-priority small {
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.list-title {
+  margin-top: 0;
+}
+
+.list-title h2 {
+  color: var(--app-text);
+  font-size: 18px;
+}
+
+.event-list {
+  overflow: hidden;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-panel);
+}
+
+.event-row {
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  border-radius: 0;
+}
+
+.event-row:last-child {
+  border-bottom: 0;
+}
+
 .event-row,
 .timeline-row,
 .device-panel,
@@ -661,6 +758,23 @@ textarea::placeholder {
 
   .settings-switch button {
     flex: 1;
+  }
+
+  .page-heading .button-row {
+    align-items: stretch;
+  }
+
+  .view-switch {
+    flex: 1;
+  }
+
+  .view-switch button {
+    flex: 1;
+  }
+
+  .task-priority {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

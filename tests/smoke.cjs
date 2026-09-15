@@ -160,12 +160,12 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '切换深色模式' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
     await page.waitForTimeout(240);
-    assert.ok((await contrastRatio(page.getByRole('button', { name: '新建任务' }))) >= 4.5);
+    assert.ok((await contrastRatio(page.getByRole('button', { name: '搜索第一场演出' }))) >= 4.5);
     await page.screenshot({ path: join(artifacts, 'dark.png') });
     await page.getByRole('button', { name: '切换浅色模式' }).click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     await page.waitForTimeout(240);
-    assert.ok((await contrastRatio(page.getByRole('button', { name: '新建任务' }))) >= 4.5);
+    assert.ok((await contrastRatio(page.getByRole('button', { name: '搜索第一场演出' }))) >= 4.5);
     await page.screenshot({ path: join(artifacts, 'empty.png') });
     await app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
@@ -357,7 +357,8 @@ async function contrastRatio(locator) {
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '删除本地任务' }).click();
     await page.getByRole('button', { name: '任务', exact: true }).click();
-    await page.getByRole('button', { name: '新建任务' }).click();
+    await page.getByRole('button', { name: '设置', exact: true }).click();
+    await page.getByRole('button', { name: '手工录入任务' }).click();
     await page.getByLabel('活动名称').fill('测试巡演 · 上海站');
     await page.getByLabel('场馆 / 城市').fill('上海体育馆');
     await page.getByLabel('固定演出场次（当地时间）').fill('2026-10-01T19:30');
@@ -370,8 +371,8 @@ async function contrastRatio(locator) {
     await page.getByRole('heading', { name: '测试巡演 · 上海站' }).waitFor();
     await page.getByRole('button', { name: '返回任务列表' }).click();
     await page
-      .getByRole('region', { name: '下一步行动' })
-      .getByRole('button', { name: /补全官方销售日历/ })
+      .getByRole('region', { name: '当前最重要的操作' })
+      .getByRole('button', { name: '继续准备' })
       .click();
     await page.getByRole('tab', { name: /官方机会/ }).waitFor();
     await page.getByRole('button', { name: '内置官方网页' }).click();
@@ -457,11 +458,11 @@ async function contrastRatio(locator) {
     await page.getByLabel('公开销售参与状态').selectOption('registered');
     await page.getByRole('button', { name: '返回任务列表' }).click();
     await page
-      .getByRole('region', { name: '下一次官方机会' })
+      .getByRole('region', { name: '当前最重要的操作' })
       .getByText('7 项准备待核对')
       .waitFor();
     await page.screenshot({ path: join(artifacts, 'focus.png'), fullPage: true });
-    await page.getByRole('button', { name: '先核对准备' }).click();
+    await page.getByRole('button', { name: '继续准备' }).click();
     await page.getByRole('tab', { name: /开售准备/ }).evaluate((node) => {
       if (node.getAttribute('aria-selected') !== 'true') throw new Error('未进入准备步骤');
     });
@@ -507,8 +508,11 @@ async function contrastRatio(locator) {
     await page.getByRole('tab', { name: /订单结果/ }).click();
     await page.getByText('待支付订单即将截止').waitFor();
     await page.getByRole('button', { name: '返回任务列表' }).click();
-    await page.getByRole('region', { name: '待支付订单' }).getByText('测试巡演 · 上海站').waitFor();
-    await page.getByRole('button', { name: '查看订单结果' }).click();
+    await page
+      .getByRole('region', { name: '当前最重要的操作' })
+      .getByText('测试巡演 · 上海站')
+      .waitFor();
+    await page.getByRole('button', { name: '处理订单' }).click();
     await page.getByRole('button', { name: '编辑规则' }).click();
     await page.getByLabel('场馆 / 城市').fill('上海新体育馆');
     await page.getByLabel('本场购票渠道').selectOption('app_required');
@@ -518,11 +522,11 @@ async function contrastRatio(locator) {
     await page.getByText('网页仅用于核对公告', { exact: false }).waitFor();
     await page.screenshot({ path: join(artifacts, 'app-only.png') });
     await page.getByRole('button', { name: '返回任务列表' }).click();
-    await page.getByRole('button', { name: '按时间' }).click();
-    await page.getByRole('heading', { name: '任务时间线' }).waitFor();
+    await page.getByRole('tab', { name: '按时间' }).click();
+    await page.getByRole('heading', { name: '任务' }).waitFor();
     await page.getByRole('button', { name: '设置', exact: true }).click();
     await page.getByRole('tab', { name: '平台说明' }).click();
-    await page.getByRole('heading', { name: '平台规则与能力边界' }).waitFor();
+    await page.getByRole('heading', { name: '设置' }).waitFor();
     await page.getByRole('region', { name: '同类工具能力对照' }).getByText('Bandsintown').waitFor();
     await page.screenshot({ path: join(artifacts, 'comparison.png'), fullPage: true });
     assert.equal(
@@ -536,7 +540,7 @@ async function contrastRatio(locator) {
       '未收录的外部资料不得打开',
     );
     await page.getByRole('tab', { name: '手机与数据' }).click();
-    await page.getByRole('heading', { name: '设备与网页会话' }).waitFor();
+    await page.getByRole('heading', { name: '设置' }).waitFor();
     await page.getByRole('button', { name: '检查连接' }).click();
     await page
       .locator('.preline')
