@@ -40,12 +40,14 @@ export function EventForm({
   onSave,
   onLaunchApp,
   onClose,
+  presentation = 'dialog',
 }: {
   initial?: EventRecord;
   seed?: DiscoveredEvent;
   onSave: (event: EventRecord, startNow?: boolean) => Promise<void>;
   onLaunchApp: () => Promise<string>;
   onClose: () => void;
+  presentation?: 'dialog' | 'panel';
 }) {
   const quickChoice = Boolean(!initial && seed?.title && seed.sourceUrl && seed.sessions?.length);
   const [showAdvanced, setShowAdvanced] = useState(!quickChoice);
@@ -179,15 +181,15 @@ export function EventForm({
 
   return (
     <div
-      className="overlay"
+      className={presentation === 'panel' ? 'purchase-panel-frame' : 'overlay'}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (presentation === 'dialog' && e.target === e.currentTarget) onClose();
       }}
     >
       <section
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
+        className={presentation === 'panel' ? 'purchase-panel' : 'dialog'}
+        role={presentation === 'dialog' ? 'dialog' : undefined}
+        aria-modal={presentation === 'dialog' ? 'true' : undefined}
         aria-labelledby="event-form-title"
       >
         <div className="dialog-head">
@@ -196,11 +198,13 @@ export function EventForm({
               {quickChoice && !availableTickets.length ? '官方入口' : '购票意向'}
             </span>
             <h2 id="event-form-title">
-              {initial
-                ? '编辑任务'
-                : quickChoice && !availableTickets.length
-                  ? '查看官方票档'
-                  : '创建购票任务'}
+              {presentation === 'panel'
+                ? '购票准备'
+                : initial
+                  ? '编辑任务'
+                  : quickChoice && !availableTickets.length
+                    ? '查看官方票档'
+                    : '创建购票任务'}
             </h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
@@ -229,7 +233,7 @@ export function EventForm({
             <fieldset className="wide candidate-picker">
               <legend>
                 {quickChoice && availableTickets.length
-                  ? '① 选择想去的场次'
+                  ? '场次'
                   : quickChoice && !availableTickets.length
                     ? '官方页面列出的场次'
                     : '演出场次'}
@@ -267,7 +271,7 @@ export function EventForm({
           ) : null}
           {!initial && availableTickets.length ? (
             <fieldset className="wide candidate-picker">
-              <legend>② 选择可接受票档</legend>
+              <legend>票档</legend>
               <div className="candidate-list">
                 {availableTickets.map((option) => {
                   const selectedIndex = tiers.findIndex(
@@ -353,7 +357,7 @@ export function EventForm({
           </label>
           {(!quickChoice || availableTickets.length > 0) && (
             <label className="quick-field">
-              ③ 固定人数
+              {quickChoice ? '人数' : '固定人数'}
               {seed && !initial ? (
                 <select
                   aria-label="固定人数"
@@ -520,7 +524,7 @@ export function EventForm({
                 className="text-button"
                 onClick={() => setShowAdvanced((value) => !value)}
               >
-                {showAdvanced ? '收起详细资料' : '查看识别详情与手动修改'}
+                {showAdvanced ? '收起识别详情' : '识别详情'}
               </button>
             </div>
           )}
@@ -540,13 +544,15 @@ export function EventForm({
                     : '公开页面没有逐档票价；请在原生 App 查看并购票。')}
               </small>
             )}
-            <button type="button" className="button ghost" onClick={onClose}>
-              取消
-            </button>
+            {presentation === 'dialog' && (
+              <button type="button" className="button ghost" onClick={onClose}>
+                取消
+              </button>
+            )}
             {(!quickChoice || availableTickets.length > 0) && (
               <button
                 type="submit"
-                className={quickChoice ? 'button ghost' : 'button primary'}
+                className={quickChoice ? 'button quiet' : 'button primary'}
                 onClick={() => {
                   startAfterSave.current = false;
                 }}
@@ -555,7 +561,7 @@ export function EventForm({
                   (quickChoice && (!sessions.length || !tiers.some((tier) => tier.label.trim())))
                 }
               >
-                {busy ? '保存中…' : '保存任务'}
+                {busy ? '保存中…' : quickChoice ? '仅保存' : '保存任务'}
               </button>
             )}
             {quickChoice && availableTickets.length > 0 && (
@@ -567,7 +573,7 @@ export function EventForm({
                 }}
                 disabled={busy || !sessions.length || !tiers.some((tier) => tier.label.trim())}
               >
-                {busy ? '打开中…' : '开始购票'}
+                {busy ? '打开中…' : '准备并打开官方购票'}
               </button>
             )}
             {quickChoice && !availableTickets.length && seed?.appOnly && (

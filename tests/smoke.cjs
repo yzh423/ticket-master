@@ -45,7 +45,7 @@ async function contrastRatio(locator) {
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
     });
-    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    await page.getByRole('heading', { name: '找演出' }).waitFor();
     const mainNavigation = page.getByRole('navigation', { name: '主导航' });
     for (const name of ['找票', '任务', '设置']) {
       assert.equal(await mainNavigation.getByRole('button', { name, exact: true }).count(), 1);
@@ -53,12 +53,13 @@ async function contrastRatio(locator) {
     for (const name of ['销售日历', '平台规则', '设备与会话']) {
       assert.equal(await mainNavigation.getByRole('button', { name, exact: true }).count(), 0);
     }
-    await page.getByRole('button', { name: /更多平台 · 20/ }).click();
+    await page.getByRole('button', { name: /选择平台/ }).click();
+    await page.getByRole('button', { name: /全部 20 个平台/ }).click();
     await page.getByRole('button', { name: /StubHub/ }).waitFor();
     await page.getByRole('button', { name: /收起平台/ }).click();
     await page.screenshot({ path: join(artifacts, 'discover-latest.png') });
     await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋 深圳');
-    await page.getByRole('button', { name: '搜索演出' }).click();
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
     await page.getByRole('button', { name: '读取活动信息' }).waitFor();
     assert.equal(
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
@@ -72,7 +73,7 @@ async function contrastRatio(locator) {
     });
     assert.ok(discoveryView, '搜索网页应嵌入主窗口');
     await page.getByLabel('演出关键词或官方活动链接').fill('上海 音乐节');
-    await page.getByRole('button', { name: '搜索演出' }).click();
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
     const discoveryViewAfter = await app.evaluate(({ BrowserWindow }) => {
       const holder = BrowserWindow.getAllWindows()[0];
       const child = holder?.contentView.children[0];
@@ -90,7 +91,7 @@ async function contrastRatio(locator) {
     assert.match(inspectError, /请先/);
     await page.getByRole('button', { name: /Ticketmaster/ }).click();
     await page.getByLabel('演出关键词或官方活动链接').fill('Coldplay');
-    await page.getByRole('button', { name: '搜索演出' }).click();
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
     assert.equal(
       (await page.evaluate(() => window.ticket.discoveryState())).platform,
       'ticketmaster',
@@ -128,6 +129,7 @@ async function contrastRatio(locator) {
     );
     await page.getByRole('button', { name: '关闭站内网页' }).click();
     await page.evaluate(() => window.ticket.clearBrowserData('ticketmaster'));
+    await page.getByRole('button', { name: /选择平台/ }).click();
     await page.getByRole('button', { name: /猫眼演出/ }).click();
     await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋');
     await page.getByRole('button', { name: '打开官网' }).click();
@@ -137,6 +139,7 @@ async function contrastRatio(locator) {
       1,
     );
     await page.getByRole('button', { name: '关闭站内网页' }).click();
+    await page.getByRole('button', { name: /选择平台/ }).click();
     await page
       .getByRole('group', { name: '筛选平台类别' })
       .getByRole('button', { name: '香港' })
@@ -146,6 +149,7 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: '打开官网' }).click();
     assert.equal((await page.evaluate(() => window.ticket.discoveryState())).platform, 'urbtix');
     await page.getByRole('button', { name: '关闭站内网页' }).click();
+    await page.getByRole('button', { name: /选择平台/ }).click();
     await page
       .getByRole('group', { name: '筛选平台类别' })
       .getByRole('button', { name: '全部' })
@@ -191,7 +195,8 @@ async function contrastRatio(locator) {
       2,
     );
     assert.equal(await page.getByLabel('固定演出场次（当地时间）').count(), 0);
-    assert.equal(await page.getByRole('button', { name: '开始购票' }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: '准备并打开官方购票' }).isDisabled(), true);
+    await page.getByRole('complementary', { name: '购票准备' }).waitFor();
     const sessionOptions = page.getByRole('list', { name: '已确认演出场次' }).getByRole('button');
     await sessionOptions.nth(0).click();
     await sessionOptions.nth(1).click();
@@ -202,18 +207,18 @@ async function contrastRatio(locator) {
     await page.getByRole('button', { name: /看台.*580/ }).click();
     await page.getByLabel('固定人数').selectOption('2');
     assert.equal(await page.getByLabel('含费用的总预算').count(), 0);
-    assert.equal(await page.getByRole('button', { name: '开始购票' }).isEnabled(), true);
+    assert.equal(await page.getByRole('button', { name: '准备并打开官方购票' }).isEnabled(), true);
     await page.getByLabel('固定人数').selectOption('3');
     await page.getByLabel('固定人数').selectOption('2');
     await page.screenshot({ path: join(artifacts, 'discovered-options.png') });
-    await page.getByRole('button', { name: '查看识别详情与手动修改' }).click();
+    await page.getByRole('button', { name: '识别详情' }).click();
     assert.equal(
       await page.getByRole('list', { name: '已确认演出场次' }).getByRole('listitem').count(),
       2,
     );
     assert.equal(await page.getByLabel('票档 1 名称').inputValue(), '内场');
     assert.equal(await page.getByLabel('票档 2 名称').inputValue(), '看台');
-    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('button', { name: '仅保存' }).click();
     await page.getByRole('heading', { name: '自动识别测试巡演' }).waitFor();
     assert.equal(
       await page.getByRole('list', { name: '已选择的演出场次' }).getByRole('listitem').count(),
@@ -250,7 +255,7 @@ async function contrastRatio(locator) {
     await page.getByLabel('币种').selectOption('USD');
     await page.getByRole('list', { name: '已确认演出场次' }).getByRole('button').click();
     await page.getByRole('button', { name: /Section A.*120/ }).click();
-    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('button', { name: '仅保存' }).click();
     await page.getByRole('heading', { name: '国际场馆官方活动测试' }).waitFor();
     const [internationalTask] = await page.evaluate(() => window.ticket.list());
     assert.equal(internationalTask.timeZone, 'America/New_York');
@@ -282,14 +287,17 @@ async function contrastRatio(locator) {
     assert.equal(await page.getByRole('button', { name: /380.*张/ }).count(), 0);
     assert.equal(await page.getByLabel('固定人数').count(), 0);
     assert.equal(await page.getByLabel('手机票档文字').count(), 0);
-    assert.equal(await page.getByRole('button', { name: '开始购票' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: '准备并打开官方购票' }).count(), 0);
     assert.equal(await page.getByRole('button', { name: '保存任务' }).count(), 0);
     assert.equal(
       await page.getByRole('button', { name: '打开大麦 App 查看票档' }).isEnabled(),
       true,
     );
     await page.screenshot({ path: join(artifacts, 'price-range-only.png') });
-    await page.getByRole('dialog').getByRole('button', { name: '关闭' }).click();
+    await page
+      .getByRole('complementary', { name: '购票准备' })
+      .getByRole('button', { name: '关闭' })
+      .click();
     await app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.send('discovery:selected', {
         platform: 'hkticketing',
@@ -311,7 +319,7 @@ async function contrastRatio(locator) {
     assert.equal(await page.getByLabel('币种').isVisible(), false);
     await page.getByRole('list', { name: '已确认演出场次' }).getByRole('button').click();
     await page.getByRole('button', { name: /标准票.*880/ }).click();
-    await page.getByRole('button', { name: '保存任务' }).click();
+    await page.getByRole('button', { name: '仅保存' }).click();
     await page.getByRole('heading', { name: '香港官方活动测试' }).waitFor();
     const [hongKongTask] = await page.evaluate(() => window.ticket.list());
     assert.equal(hongKongTask.timeZone, 'Asia/Hong_Kong');
@@ -337,7 +345,7 @@ async function contrastRatio(locator) {
     });
     await page.getByRole('list', { name: '已确认演出场次' }).getByRole('button').click();
     await page.getByRole('button', { name: /看台.*580/ }).click();
-    await page.getByRole('button', { name: '开始购票' }).click();
+    await page.getByRole('button', { name: '准备并打开官方购票' }).click();
     await page
       .getByRole('region', { name: '当前任务购票条件' })
       .getByText('直接打开官网的测试项目')
@@ -583,4 +591,3 @@ async function contrastRatio(locator) {
   console.error(error);
   process.exitCode = 1;
 });
-

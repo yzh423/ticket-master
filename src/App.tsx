@@ -483,6 +483,24 @@ export default function App() {
       .toLocaleLowerCase()
       .includes(query.trim().toLocaleLowerCase()),
   );
+  const discoverySetup =
+    editing === true && discoverySeed ? (
+      <EventForm
+        key={discoverySeed.eventUrl}
+        seed={discoverySeed}
+        presentation="panel"
+        onSave={save}
+        onLaunchApp={() =>
+          web
+            ? Promise.resolve('网页版本不能启动手机 App，请在手机上打开本场指定的官方 App。')
+            : launchDamaiForTask()
+        }
+        onClose={() => {
+          setEditing(null);
+          setDiscoverySeed(null);
+        }}
+      />
+    ) : null;
 
   return (
     <div className="shell">
@@ -602,7 +620,9 @@ export default function App() {
           ) : page === 'discover' ? (
             <DiscoverPage
               web={web}
-              suspended={Boolean(editing)}
+              suspended={Boolean(editing && !discoverySetup)}
+              setupOpen={Boolean(discoverySetup)}
+              setupPanel={discoverySetup}
               activeTask={events.find((item) => item.id === activeTaskId) ?? null}
               activeOpportunity={
                 events
@@ -936,7 +956,9 @@ export default function App() {
                 <button role="tab" aria-selected="false" onClick={() => setPage('device')}>
                   {web ? '应用与数据' : '手机与数据'}
                 </button>
-                <button role="tab" aria-selected="true">平台说明</button>
+                <button role="tab" aria-selected="true">
+                  平台说明
+                </button>
               </div>
               <div className="page-heading">
                 <div>
@@ -1008,7 +1030,9 @@ export default function App() {
           ) : web ? (
             <>
               <div className="settings-switch" role="tablist" aria-label="设置类别">
-                <button role="tab" aria-selected="true">应用与数据</button>
+                <button role="tab" aria-selected="true">
+                  应用与数据
+                </button>
                 <button role="tab" aria-selected="false" onClick={() => setPage('guide')}>
                   平台说明
                 </button>
@@ -1063,7 +1087,9 @@ export default function App() {
           ) : (
             <>
               <div className="settings-switch" role="tablist" aria-label="设置类别">
-                <button role="tab" aria-selected="true">手机与数据</button>
+                <button role="tab" aria-selected="true">
+                  手机与数据
+                </button>
                 <button role="tab" aria-selected="false" onClick={() => setPage('guide')}>
                   平台说明
                 </button>
@@ -1183,7 +1209,7 @@ export default function App() {
           )}
         </div>
       </main>
-      {editing && (
+      {editing && !discoverySetup && (
         <EventForm
           key={editing === true ? (discoverySeed?.eventUrl ?? 'new-event') : editing.id}
           initial={editing === true ? undefined : editing}

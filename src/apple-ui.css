@@ -277,6 +277,17 @@ a:focus-visible {
   border-color: var(--app-border-strong);
 }
 
+.button.quiet {
+  color: var(--app-muted);
+  background: transparent;
+  border: 0;
+}
+
+.button.quiet:hover {
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--app-text) 6%, transparent);
+}
+
 .settings-switch {
   display: inline-flex;
   gap: 3px;
@@ -392,6 +403,174 @@ a:focus-visible {
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius-sheet);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.purchase-panel-frame,
+.purchase-panel {
+  min-width: 0;
+}
+
+.purchase-panel {
+  padding: 20px;
+  color: var(--app-text);
+  background: var(--app-surface);
+}
+
+.purchase-panel .dialog-head {
+  margin: 0 0 16px;
+  padding-bottom: 14px;
+  border-color: var(--app-border);
+}
+
+.purchase-panel .dialog-head h2 {
+  color: var(--app-text);
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.purchase-panel .icon-button {
+  width: 40px;
+  height: 40px;
+  color: var(--app-muted);
+  border-radius: 50%;
+}
+
+.purchase-panel .icon-button:hover {
+  color: var(--app-text);
+  background: var(--app-surface-muted);
+}
+
+.purchase-panel .import-summary {
+  margin-bottom: 18px;
+  padding: 0 0 16px;
+  color: var(--app-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  border-radius: 0;
+}
+
+.purchase-panel .import-summary svg {
+  color: var(--app-accent);
+}
+
+.purchase-panel .import-summary strong {
+  font-size: 14px;
+}
+
+.purchase-panel .import-summary p {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.purchase-panel .form-grid {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.purchase-panel .form-grid .wide {
+  grid-column: 1;
+}
+
+.purchase-panel .candidate-picker {
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  border-radius: 0;
+}
+
+.purchase-panel .candidate-picker legend,
+.purchase-panel label.quick-field {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.purchase-panel .candidate-list {
+  gap: 7px;
+  margin: 10px 0 7px;
+}
+
+.purchase-panel .candidate-choice,
+.purchase-panel .candidate-ticket {
+  min-height: 44px;
+  padding: 9px 11px;
+  color: var(--app-text);
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
+  border-radius: 9px;
+}
+
+.purchase-panel .candidate-choice:hover,
+.purchase-panel .candidate-ticket:hover {
+  border-color: var(--app-border-strong);
+}
+
+.purchase-panel .candidate-choice.is-selected,
+.purchase-panel .candidate-ticket.is-selected {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  border-color: color-mix(in srgb, var(--app-accent) 50%, transparent);
+}
+
+.purchase-panel .candidate-ticket strong {
+  color: inherit;
+}
+
+.purchase-panel .candidate-rank {
+  color: #fff;
+  background: var(--app-accent-fill);
+}
+
+.purchase-panel .candidate-picker small,
+.purchase-panel .purchase-handoff-note {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.purchase-panel select {
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.purchase-panel .quick-form-toggle {
+  padding-top: 0;
+}
+
+.purchase-panel .text-button {
+  min-height: 40px;
+  color: var(--app-accent);
+  font-size: 13px;
+}
+
+.purchase-panel .form-actions,
+.purchase-panel .quick-form .form-actions {
+  position: static;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin: 0;
+  padding: 16px 0 0;
+  border-color: var(--app-border);
+  background: transparent;
+}
+
+.purchase-panel .purchase-handoff-note {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin: 0 0 4px;
+}
+
+.purchase-panel .form-actions .button.primary {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+}
+
+.purchase-panel .form-actions .button.quiet {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  justify-self: center;
 }
 
 .overlay {

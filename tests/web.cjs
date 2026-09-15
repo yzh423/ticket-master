@@ -14,7 +14,7 @@ const { readFileSync } = require('node:fs');
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await page.goto(url);
-    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    await page.getByRole('heading', { name: '找演出' }).waitFor();
     await page
       .getByLabel('演出关键词或官方活动链接')
       .fill('https://detail.damai.cn.evil.example/item.htm?id=1');
@@ -24,10 +24,10 @@ const { readFileSync } = require('node:fs');
       route.fulfill({ status: 200, contentType: 'text/html', body: '<title>大麦官方搜索</title>' }),
     );
     await page.getByLabel('演出关键词或官方活动链接').fill('邓紫棋 深圳');
-    await page.getByRole('button', { name: '搜索演出' }).click();
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
     await page.waitForURL(/search\.damai\.cn\/search\.htm\?keyword=/);
     await page.goBack();
-    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    await page.getByRole('heading', { name: '找演出' }).waitFor();
     await page.getByRole('button', { name: '任务', exact: true }).click();
     await page.getByRole('button', { name: '新建任务' }).click();
     await page.getByLabel('活动名称').fill('浏览器启动测试');
@@ -53,7 +53,7 @@ const { readFileSync } = require('node:fs');
       .click();
     await (await knowledgePage).waitForURL('https://www.artist.bandsintown.com/overview');
     await page.reload();
-    await page.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+    await page.getByRole('heading', { name: '找演出' }).waitFor();
     await page.getByRole('button', { name: '任务', exact: true }).click();
     await page.locator('.event-row').filter({ hasText: '浏览器启动测试' }).click();
     await page.getByRole('button', { name: '添加机会' }).click();
@@ -115,7 +115,7 @@ const { readFileSync } = require('node:fs');
       });
       const deniedPage = await denied.newPage();
       await deniedPage.goto(url);
-      await deniedPage.getByRole('heading', { name: '搜索你想看的演出' }).waitFor();
+      await deniedPage.getByRole('heading', { name: '找演出' }).waitFor();
       await deniedPage
         .getByRole('alert')
         .getByText('浏览器禁止读取本站数据', { exact: false })
@@ -133,4 +133,3 @@ const { readFileSync } = require('node:fs');
   console.error(error);
   process.exitCode = 1;
 });
-

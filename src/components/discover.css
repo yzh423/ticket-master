@@ -664,6 +664,320 @@
   color: #145d9f;
   font-weight: 700;
 }
+
+/* Simplified product workspace */
+.discover-page {
+  display: grid;
+  gap: 18px;
+}
+
+.discover-hero,
+.discover-hero.task-mode {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--app-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.discover-hero::before {
+  display: none;
+}
+
+.discover-hero-copy {
+  max-width: none;
+}
+
+.discover-hero h1,
+.discover-hero.task-mode h1 {
+  margin: 0 0 4px;
+  color: var(--app-text);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 720;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+.discover-hero p,
+.discover-hero.task-mode p {
+  margin-bottom: 16px;
+  color: var(--app-muted);
+  font-size: 14px;
+}
+
+.discover-search,
+.discover-hero.task-mode .discover-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 58px;
+  margin: 0;
+  padding: 6px;
+  padding-left: 17px;
+  color: var(--app-muted);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
+}
+
+.discover-search:focus-within {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 16%, transparent);
+}
+
+.discover-search input {
+  min-width: 0;
+  color: var(--app-text);
+  background: transparent;
+  font-size: 16px;
+}
+
+.discover-search button {
+  min-width: 102px;
+  min-height: 44px;
+  padding: 0 17px;
+  color: #fff;
+  background: var(--app-accent-fill);
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.discover-platform-trigger {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 9px;
+  gap: 7px;
+  color: var(--app-text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--app-radius-control);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.discover-platform-trigger:hover,
+.discover-platform-trigger[aria-expanded='true'] {
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+.discover-platform-trigger span {
+  color: var(--app-muted);
+  font-weight: 450;
+}
+
+.discover-platform-menu {
+  margin-top: 6px;
+  padding: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-panel);
+  animation: discover-menu-in var(--motion-fast) ease-out;
+}
+
+@keyframes discover-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.discover-groups {
+  margin: 0 0 10px;
+}
+
+.discover-groups button {
+  min-height: 38px;
+  color: var(--app-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.discover-groups button.selected {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  border-color: transparent;
+}
+
+.discover-sources {
+  gap: 8px;
+}
+
+.discover-sources button,
+.discover-sources button.discover-more {
+  min-height: 58px;
+  color: var(--app-text);
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
+  border-radius: 9px;
+}
+
+.discover-sources button.selected {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  border-color: color-mix(in srgb, var(--app-accent) 45%, transparent);
+}
+
+.discover-sources small {
+  color: var(--app-muted);
+}
+
+.discover-trust {
+  display: none;
+}
+
+.discover-message {
+  margin: 8px 0 0;
+  color: var(--app-muted);
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+}
+
+.discover-browser-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.discover-browser-layout.has-setup {
+  grid-template-columns: minmax(520px, 1fr) minmax(340px, 410px);
+  align-items: start;
+}
+
+.discover-workspace {
+  min-width: 0;
+  margin: 0;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-panel);
+  box-shadow: none;
+}
+
+.discover-workspace-head {
+  min-height: 54px;
+  padding: 8px 12px 8px 16px;
+  border-color: var(--app-border);
+}
+
+.discover-workspace h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.discover-toolbar button {
+  min-width: 40px;
+  min-height: 40px;
+  color: var(--app-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+}
+
+.discover-toolbar button:hover {
+  color: var(--app-text);
+  background: var(--app-surface-muted);
+}
+
+.discover-toolbar .discover-inspect {
+  min-width: auto;
+  padding: 0 12px;
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  font-weight: 650;
+}
+
+.discover-location {
+  color: var(--app-muted);
+  background: var(--app-surface-muted);
+  border: 0;
+}
+
+.discover-browser-pane {
+  min-height: 520px;
+  background: var(--app-surface-muted);
+}
+
+.discover-browser-empty {
+  color: var(--app-muted);
+}
+
+.discover-result {
+  margin: 0;
+  padding: 13px 16px;
+  color: var(--app-text);
+  background: var(--app-accent-soft);
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.discover-result button {
+  min-height: 42px;
+  color: #fff;
+  background: var(--app-accent-fill);
+  border: 0;
+  border-radius: 8px;
+}
+
+.discover-setup-slot {
+  position: sticky;
+  top: 76px;
+  min-width: 0;
+  max-height: calc(100dvh - 96px);
+  overflow: auto;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sheet);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 1120px) {
+  .discover-browser-layout.has-setup {
+    grid-template-columns: minmax(430px, 1fr) 360px;
+  }
+}
+
+@media (max-width: 900px) {
+  .discover-browser-layout.has-setup {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-setup-slot {
+    position: static;
+    grid-row: 1;
+    max-height: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .discover-search {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 7px 12px;
+  }
+
+  .discover-search button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .discover-browser-pane {
+    min-height: 400px;
+  }
+}
 .discover-workspace-head {
   min-height: 57px;
   padding: 11px 15px;
