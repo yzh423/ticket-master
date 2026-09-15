@@ -5,6 +5,7 @@ import './styles.css';
 import './theme.css';
 import './journey.css';
 import './adaptive.css';
+import './apple-ui.css';
 import { installWebBridge } from './web-bridge';
 
 let savedTheme: string | null = null;
