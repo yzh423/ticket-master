@@ -8,5 +8,9 @@ export default defineConfig({
   build: {
     rollupOptions: { input: { main: resolve('index.html'), browser: resolve('browser.html') } },
   },
-  test: { include: ['**/*.test.ts'], environment: 'node' },
+  test: {
+    include: ['**/*.test.ts'],
+    exclude: ['**/.worktrees/**'],
+    environment: 'node',
+  },
 });
