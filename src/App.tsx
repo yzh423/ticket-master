@@ -1168,7 +1168,8 @@ function EventDetail({
     .sort((a, b) => a.paymentDeadline!.localeCompare(b.paymentDeadline!))[0]?.paymentDeadline;
   const focusSale = event.opportunities
     .filter((item) => item.status !== 'completed' && item.status !== 'missed')
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .find((item) => Date.parse(item.startsAt) - clock >= -2 * 60 * 60_000);
   const focusDelta = focusSale ? Date.parse(focusSale.startsAt) - clock : null;
   const focusMode = Boolean(
     pendingDeadline ||
